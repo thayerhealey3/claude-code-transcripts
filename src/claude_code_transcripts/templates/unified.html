@@ -17,7 +17,25 @@
         </div>
 
         <div class="sidebar-search">
-            <input type="text" id="unified-search" placeholder="Search transcript..." aria-label="Search transcript">
+            <div class="search-container">
+                <input type="text" id="unified-search" placeholder="Search transcript..." aria-label="Search transcript">
+                <button id="search-clear-btn" class="search-clear" aria-label="Clear search">&times;</button>
+            </div>
+        </div>
+
+        <div class="message-filters">
+            <label class="filter-toggle active" data-filter="user">
+                <span class="filter-indicator"></span>
+                <span>User</span>
+            </label>
+            <label class="filter-toggle active" data-filter="assistant">
+                <span class="filter-indicator"></span>
+                <span>Assistant</span>
+            </label>
+            <label class="filter-toggle active" data-filter="tool">
+                <span class="filter-indicator"></span>
+                <span>Tool</span>
+            </label>
         </div>
 
         <div class="sidebar-stats">

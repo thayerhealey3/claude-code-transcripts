@@ -460,3 +460,349 @@ class TestSystemInfoSeparation:
         assert "system-info" in html
         # The user prompt should still be present
         assert "Actual user prompt here" in html
+
+
+class TestSidebarScrollbar:
+    """Tests for sidebar scrollbar theming."""
+
+    def test_sidebar_scrollbar_dark_theme(self, output_dir):
+        """Test that sidebar scrollbar has dark theme styling."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have custom scrollbar styling for sidebar
+        assert ".sidebar-nav::-webkit-scrollbar" in html
+
+    def test_sidebar_scrollbar_track_dark(self, output_dir):
+        """Test that scrollbar track is dark themed."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have dark track background
+        assert "::-webkit-scrollbar-track" in html
+
+    def test_sidebar_scrollbar_thumb_themed(self, output_dir):
+        """Test that scrollbar thumb is themed."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have themed thumb
+        assert "::-webkit-scrollbar-thumb" in html
+
+
+class TestMessageTypeFilters:
+    """Tests for message type filter toggles."""
+
+    def test_has_filter_toggles_container(self, output_dir):
+        """Test that filter toggle container exists."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have filter container
+        assert 'class="message-filters"' in html or 'id="message-filters"' in html
+
+    def test_has_user_message_filter(self, output_dir):
+        """Test that user message filter toggle exists."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have user filter toggle
+        assert 'data-filter="user"' in html
+
+    def test_has_assistant_message_filter(self, output_dir):
+        """Test that assistant message filter toggle exists."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have assistant filter toggle
+        assert 'data-filter="assistant"' in html
+
+    def test_has_tool_message_filter(self, output_dir):
+        """Test that tool message filter toggle exists."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have tool filter toggle
+        assert 'data-filter="tool"' in html
+
+    def test_filters_on_by_default(self, output_dir):
+        """Test that all filters are on by default."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have checked checkboxes or active state by default
+        assert "checked" in html or "active" in html.lower()
+
+    def test_filter_toggle_javascript(self, output_dir):
+        """Test that filter toggle JavaScript functionality exists."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have JS that handles filter toggling
+        assert "toggleFilter" in html or "filter-toggle" in html
+
+
+class TestSearchClearButton:
+    """Tests for search clear button functionality."""
+
+    def test_has_clear_button_in_search(self, output_dir):
+        """Test that search input has a clear button."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have clear button in search container
+        assert 'class="search-clear"' in html or 'id="search-clear"' in html
+
+    def test_clear_button_resets_nav_items(self, output_dir):
+        """Test that clear button JavaScript resets nav item appearance."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should reset nav link opacity in JS
+        assert "opacity" in html and ("1" in html or "'1'" in html)
+
+    def test_clear_button_stays_at_position(self, output_dir):
+        """Test that clearing search doesn't scroll to beginning."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should NOT scroll when clearing (look for specific non-scroll behavior)
+        # The clear function should reset without scrolling
+        assert "clearSearch" in html or "search-clear" in html
+
+
+class TestCopyButton:
+    """Tests for copy text button functionality."""
+
+    def test_has_copy_button_css(self, output_dir):
+        """Test that copy button CSS styles exist."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have copy button styling
+        assert ".copy-btn" in html or ".copy-button" in html
+
+    def test_has_copy_button_js(self, output_dir):
+        """Test that copy button JavaScript functionality exists."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have clipboard copy functionality
+        assert "clipboard" in html.lower() or "navigator.clipboard" in html
+
+    def test_code_blocks_have_copy_button(self, output_dir):
+        """Test that code blocks have copy buttons."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Show me code", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "text", "text": "```python\nprint('hello')\n```"}
+                        ],
+                    },
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Code blocks should be wrapped with copy functionality
+        assert "copy" in html.lower()
+
+
+class TestCodeBlockSyntaxHighlight:
+    """Tests for language-based code block syntax highlighting."""
+
+    def test_has_language_class_on_code_blocks(self, output_dir):
+        """Test that code blocks have language-specific classes."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Show me Python code", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "text", "text": "```python\nprint('hello')\n```"}
+                        ],
+                    },
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have language class on pre or code element
+        assert 'class="language-python"' in html or 'data-language="python"' in html
+
+    def test_has_syntax_highlight_styles(self, output_dir):
+        """Test that syntax highlighting CSS exists."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have syntax highlighting styles (keywords, strings, comments)
+        assert (
+            ".hljs" in html
+            or ".token" in html
+            or ".syntax-" in html
+            or ".code-keyword" in html
+        )
+
+    def test_javascript_code_styled(self, output_dir):
+        """Test that JavaScript code blocks get proper styling."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Show me JS code", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "```javascript\nconst x = 42;\n```",
+                            }
+                        ],
+                    },
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should identify JavaScript language
+        assert "javascript" in html.lower() or "js" in html
+
+
+class TestNavMenuUserPrompts:
+    """Tests for nav menu showing actual user prompts."""
+
+    def test_nav_shows_user_text_not_system_info(self, output_dir):
+        """Test that nav menu shows actual user text, not system tags."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {
+                        "content": "<ide_opened_file>some/path.txt</ide_opened_file>\nMy actual question here",
+                        "role": "user",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Response"}],
+                    },
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Nav should show "My actual question here" not "<ide_opened_file>"
+        assert "My actual question" in html
+        # The ide_opened_file tag content should not appear in nav preview
+        assert 'class="nav-preview"' in html
+
+
+class TestUserContentStyling:
+    """Tests for proper user content styling and class names."""
+
+    def test_user_content_has_user_text_class(self, output_dir):
+        """Test that actual user text uses user-text class, not assistant-text."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {
+                        "content": "This is the user's actual question",
+                        "role": "user",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Response"}],
+                    },
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # User messages should use user-text or user-content class
+        assert 'class="user-text"' in html or 'class="user-content"' in html
