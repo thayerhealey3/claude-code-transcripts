@@ -2402,9 +2402,15 @@ UNIFIED_JS = """
 
     const tokenInfo = document.querySelectorAll('.token-info');
     console.log('[Claude Transcripts] Token info elements found:', tokenInfo.length);
-    tokenInfo.forEach((el, i) => {
-        console.log('[Claude Transcripts] Token info', i, ':', el.textContent);
-    });
+    if (tokenInfo.length === 0) {
+        console.log('[Claude Transcripts] No token usage data found in this session.');
+        console.log('[Claude Transcripts] Note: Token usage tracking requires Claude Code to include "usage" data in session logs.');
+        console.log('[Claude Transcripts] This feature will work when Claude Code starts recording API usage metrics.');
+    } else {
+        tokenInfo.forEach((el, i) => {
+            console.log('[Claude Transcripts] Token info', i, ':', el.textContent);
+        });
+    }
 
     // Format timestamps
     document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
