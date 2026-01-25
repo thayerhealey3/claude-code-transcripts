@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from syrupy.assertion import SnapshotAssertion
 
 from claude_code_transcripts import (
     cli,
@@ -806,3 +807,216 @@ class TestUserContentStyling:
         html = (output_dir / "unified.html").read_text(encoding="utf-8")
         # User messages should use user-text or user-content class
         assert 'class="user-text"' in html or 'class="user-content"' in html
+
+
+class TestTokenUsageInUnifiedView:
+    """Tests for token usage display in unified HTML view."""
+
+    def test_shows_token_stats_in_header(self, output_dir):
+        """Test that token stats are displayed in the header when usage data is present."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Hello", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Hi there!"}],
+                    },
+                    "usage": {"input_tokens": 1500, "output_tokens": 750},
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should show token stats in header
+        assert "1,500" in html or "1500" in html  # input tokens
+        assert "750" in html  # output tokens
+        assert "2,250" in html or "2250" in html  # total tokens
+
+    def test_shows_per_message_token_info(self, output_dir):
+        """Test that individual assistant messages show token counts."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Hello", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Hi there!"}],
+                    },
+                    "usage": {"input_tokens": 150, "output_tokens": 75},
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should show per-message token info
+        assert "in: 150" in html or "in:150" in html
+        assert "out: 75" in html or "out:75" in html
+
+    def test_shows_cost_estimate(self, output_dir):
+        """Test that estimated cost is displayed in the header."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Hello", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Hi there!"}],
+                    },
+                    "usage": {"input_tokens": 100000, "output_tokens": 50000},
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should show cost estimate with $
+        assert "$" in html
+
+    def test_has_token_info_css(self, output_dir):
+        """Test that token-info CSS class is defined."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have token-info styling
+        assert ".token-info" in html
+
+    def test_no_token_stats_when_missing(self, output_dir):
+        """Test that page still works when no token usage data is present."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Hello", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Hi there!"}],
+                    },
+                    # No usage field
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        # Should not raise an error
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should still generate valid HTML
+        assert "Claude Code Transcript" in html
+
+
+class TestUnifiedHtmlSnapshot:
+    """Snapshot tests for unified HTML output."""
+
+    def test_unified_html_snapshot(self, output_dir, snapshot: SnapshotAssertion):
+        """Test that unified HTML output matches expected snapshot."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {
+                        "content": "Create a hello world function",
+                        "role": "user",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "I'll create that function for you.",
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_001",
+                                "name": "Write",
+                                "input": {
+                                    "file_path": "/project/hello.py",
+                                    "content": "def hello():\n    return 'Hello, World!'\n",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 500, "output_tokens": 250},
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_001",
+                                "content": "File written successfully",
+                            }
+                        ],
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:15.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "text", "text": "Done! The function is ready."}
+                        ],
+                    },
+                    "usage": {"input_tokens": 600, "output_tokens": 50},
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        assert html == snapshot

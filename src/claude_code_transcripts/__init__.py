@@ -1848,6 +1848,16 @@ body {
 .user .role-label { color: var(--sidebar-active); }
 .assistant .role-label { color: var(--text-muted); }
 
+.token-info {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: auto;
+    margin-right: 12px;
+    background: rgba(255,255,255,0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
 time { color: var(--text-muted); font-size: 0.8rem; }
 .timestamp-link { color: inherit; text-decoration: none; }
 .timestamp-link:hover { text-decoration: underline; }
@@ -2382,6 +2392,20 @@ pre.language-cpp, pre.language-c { border-left: 3px solid #f34b7d; }
 # JavaScript for the unified single-page UI
 UNIFIED_JS = """
 (function() {
+    console.log('[Claude Transcripts] Unified UI initialized');
+
+    // Log token stats if present
+    const headerStats = document.querySelector('.header-stats');
+    if (headerStats) {
+        console.log('[Claude Transcripts] Header stats:', headerStats.textContent);
+    }
+
+    const tokenInfo = document.querySelectorAll('.token-info');
+    console.log('[Claude Transcripts] Token info elements found:', tokenInfo.length);
+    tokenInfo.forEach((el, i) => {
+        console.log('[Claude Transcripts] Token info', i, ':', el.textContent);
+    });
+
     // Format timestamps
     document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
         const timestamp = el.getAttribute('data-timestamp');
