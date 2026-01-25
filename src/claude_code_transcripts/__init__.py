@@ -83,28 +83,84 @@ API_BASE_URL = "https://api.anthropic.com/v1"
 ANTHROPIC_VERSION = "2023-06-01"
 
 # Token pricing per million tokens (as of 2025)
-# https://www.anthropic.com/pricing
+# https://platform.claude.com/docs/en/about-claude/pricing
 MODEL_PRICING = {
-    # Claude Sonnet 4
-    "claude-sonnet-4-20250514": {
-        "input": 3.0,  # $3 per million input tokens
-        "output": 15.0,  # $15 per million output tokens
-        "cache_read": 0.30,  # 90% discount on cached reads
-        "cache_write": 3.75,  # 25% premium for cache creation
+    # Claude Opus 4.5
+    "claude-opus-4-5-20250514": {
+        "input": 5.0,  # $5 per million input tokens
+        "output": 25.0,  # $25 per million output tokens
+        "cache_read": 0.50,  # Cache hits & refreshes
+        "cache_write": 6.25,  # 5m cache writes
+    },
+    # Claude Opus 4.1
+    "claude-opus-4-1-20250514": {
+        "input": 15.0,  # $15 per million input tokens
+        "output": 75.0,  # $75 per million output tokens
+        "cache_read": 1.50,  # Cache hits & refreshes
+        "cache_write": 18.75,  # 5m cache writes
     },
     # Claude Opus 4
     "claude-opus-4-20250514": {
         "input": 15.0,  # $15 per million input tokens
         "output": 75.0,  # $75 per million output tokens
-        "cache_read": 1.50,  # 90% discount on cached reads
-        "cache_write": 18.75,  # 25% premium for cache creation
+        "cache_read": 1.50,  # Cache hits & refreshes
+        "cache_write": 18.75,  # 5m cache writes
     },
-    # Claude 3.5 Sonnet (legacy)
+    # Claude Sonnet 4.5
+    "claude-sonnet-4-5-20250514": {
+        "input": 3.0,  # $3 per million input tokens
+        "output": 15.0,  # $15 per million output tokens
+        "cache_read": 0.30,  # Cache hits & refreshes
+        "cache_write": 3.75,  # 5m cache writes
+    },
+    # Claude Sonnet 4
+    "claude-sonnet-4-20250514": {
+        "input": 3.0,  # $3 per million input tokens
+        "output": 15.0,  # $15 per million output tokens
+        "cache_read": 0.30,  # Cache hits & refreshes
+        "cache_write": 3.75,  # 5m cache writes
+    },
+    # Claude Haiku 4.5
+    "claude-haiku-4-5-20250514": {
+        "input": 1.0,  # $1 per million input tokens
+        "output": 5.0,  # $5 per million output tokens
+        "cache_read": 0.10,  # Cache hits & refreshes
+        "cache_write": 1.25,  # 5m cache writes
+    },
+    # Claude Haiku 3.5
+    "claude-3-5-haiku-20241022": {
+        "input": 0.80,  # $0.80 per million input tokens
+        "output": 4.0,  # $4 per million output tokens
+        "cache_read": 0.08,  # Cache hits & refreshes
+        "cache_write": 1.0,  # 5m cache writes
+    },
+    # Claude 3.5 Sonnet (deprecated)
     "claude-3-5-sonnet-20241022": {
         "input": 3.0,
         "output": 15.0,
         "cache_read": 0.30,
         "cache_write": 3.75,
+    },
+    # Claude Sonnet 3.7 (deprecated)
+    "claude-3-7-sonnet-20250219": {
+        "input": 3.0,
+        "output": 15.0,
+        "cache_read": 0.30,
+        "cache_write": 3.75,
+    },
+    # Claude Opus 3 (deprecated)
+    "claude-3-opus-20240229": {
+        "input": 15.0,
+        "output": 75.0,
+        "cache_read": 1.50,
+        "cache_write": 18.75,
+    },
+    # Claude Haiku 3
+    "claude-3-haiku-20240307": {
+        "input": 0.25,
+        "output": 1.25,
+        "cache_read": 0.03,
+        "cache_write": 0.30,
     },
     # Default pricing (use Sonnet pricing as default)
     "default": {
@@ -3051,7 +3107,7 @@ def render_user_message_content_unified(message_data):
     return f"<p>{html.escape(str(content))}</p>"
 
 
-def render_message_unified(log_type, message_json, timestamp):
+def render_message_unified(log_type, message_json, timestamp, usage=None):
     """Render a message for the unified view with system info separation."""
     if not message_json:
         return ""
@@ -3059,6 +3115,8 @@ def render_message_unified(log_type, message_json, timestamp):
         message_data = json.loads(message_json)
     except json.JSONDecodeError:
         return ""
+
+    token_info = ""
     if log_type == "user":
         content_html = render_user_message_content_unified(message_data)
         # Check if this is a tool result message
@@ -3069,12 +3127,20 @@ def render_message_unified(log_type, message_json, timestamp):
     elif log_type == "assistant":
         content_html = render_assistant_message(message_data)
         role_class, role_label = "assistant", "Assistant"
+        # Add token info for assistant messages
+        if usage:
+            input_tokens = usage.get("input_tokens", 0)
+            output_tokens = usage.get("output_tokens", 0)
+            if input_tokens > 0 or output_tokens > 0:
+                token_info = f"in: {input_tokens:,} · out: {output_tokens:,}"
     else:
         return ""
     if not content_html.strip():
         return ""
     msg_id = make_msg_id(timestamp)
-    return _macros.message(role_class, role_label, msg_id, timestamp, content_html)
+    return _macros.message(
+        role_class, role_label, msg_id, timestamp, content_html, token_info
+    )
 
 
 def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=None):
@@ -3128,6 +3194,7 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
         timestamp = entry.get("timestamp", "")
         is_compact_summary = entry.get("isCompactSummary", False)
         message_data = entry.get("message", {})
+        usage = entry.get("usage", {})
         if not message_data:
             continue
         message_json = json.dumps(message_data)
@@ -3145,11 +3212,11 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
             current_conv = {
                 "user_text": user_text,
                 "timestamp": timestamp,
-                "messages": [(log_type, message_json, timestamp)],
+                "messages": [(log_type, message_json, timestamp, usage)],
                 "is_continuation": bool(is_compact_summary),
             }
         elif current_conv:
-            current_conv["messages"].append((log_type, message_json, timestamp))
+            current_conv["messages"].append((log_type, message_json, timestamp, usage))
     if current_conv:
         conversations.append(current_conv)
 
@@ -3197,8 +3264,8 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
 
         # Render messages for this section with navigation buttons
         messages_html = []
-        for log_type, message_json, timestamp in conv["messages"]:
-            msg_html = render_message_unified(log_type, message_json, timestamp)
+        for log_type, message_json, timestamp, usage in conv["messages"]:
+            msg_html = render_message_unified(log_type, message_json, timestamp, usage)
             if msg_html:
                 wrapped_msg = wrap_message_with_nav(msg_html)
                 messages_html.append(wrapped_msg)
