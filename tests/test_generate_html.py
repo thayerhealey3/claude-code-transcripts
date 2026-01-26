@@ -1635,6 +1635,29 @@ class TestTokenUsage:
         assert usage["cache_read_input_tokens"] == 80
         assert usage["cache_creation_input_tokens"] == 20
 
+    def test_extract_token_usage_from_message_usage_path(self):
+        """Test extracting token usage from message.usage (Claude Code format)."""
+        logline = {
+            "type": "assistant",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "message": {
+                "model": "claude-opus-4-5-20251101",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hi"}],
+                "usage": {
+                    "input_tokens": 3,
+                    "cache_creation_input_tokens": 2992,
+                    "cache_read_input_tokens": 12944,
+                    "output_tokens": 47,
+                },
+            },
+        }
+        usage = extract_token_usage(logline)
+        assert usage["input_tokens"] == 3
+        assert usage["output_tokens"] == 47
+        assert usage["cache_read_input_tokens"] == 12944
+        assert usage["cache_creation_input_tokens"] == 2992
+
     def test_calculate_session_tokens(self):
         """Test calculating total tokens for a session."""
         loglines = [

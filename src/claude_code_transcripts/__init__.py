@@ -181,7 +181,11 @@ def extract_token_usage(logline):
     Returns:
         Dict with input_tokens, output_tokens, and optionally cache tokens.
     """
-    usage = logline.get("usage", {})
+    # Claude Code stores usage in message.usage, but our test fixtures use top-level usage
+    usage = logline.get("message", {}).get("usage", {})
+    if not usage:
+        # Fallback to top-level usage for backwards compatibility with test fixtures
+        usage = logline.get("usage", {})
     return {
         "input_tokens": usage.get("input_tokens", 0),
         "output_tokens": usage.get("output_tokens", 0),
@@ -248,7 +252,14 @@ def calculate_token_cost(
     return cost
 
 
-def format_token_stats(input_tokens, output_tokens, total_tokens, cost):
+def format_token_stats(
+    input_tokens,
+    output_tokens,
+    total_tokens,
+    cost,
+    cache_read_tokens=0,
+    cache_creation_tokens=0,
+):
     """Format token stats for display.
 
     Args:
@@ -256,6 +267,8 @@ def format_token_stats(input_tokens, output_tokens, total_tokens, cost):
         output_tokens: Number of output tokens.
         total_tokens: Total number of tokens.
         cost: Estimated cost in USD.
+        cache_read_tokens: Number of cache read tokens (optional).
+        cache_creation_tokens: Number of cache creation tokens (optional).
 
     Returns:
         Formatted string for display.
@@ -272,8 +285,15 @@ def format_token_stats(input_tokens, output_tokens, total_tokens, cost):
         f"{format_number(input_tokens)} in",
         f"{format_number(output_tokens)} out",
         f"{format_number(total_tokens)} total",
-        f"${cost:.2f}",
     ]
+
+    # Add cache stats if present
+    if cache_read_tokens > 0:
+        parts.append(f"{format_number(cache_read_tokens)} cached")
+    if cache_creation_tokens > 0:
+        parts.append(f"{format_number(cache_creation_tokens)} cache-write")
+
+    parts.append(f"${cost:.2f}")
     return " · ".join(parts)
 
 
@@ -2932,7 +2952,7 @@ def generate_html(json_path, output_dir, github_repo=None):
         timestamp = entry.get("timestamp", "")
         is_compact_summary = entry.get("isCompactSummary", False)
         message_data = entry.get("message", {})
-        usage = entry.get("usage", {})
+        usage = extract_token_usage(entry)
         if not message_data:
             continue
         # Convert message dict to JSON string for compatibility with existing render functions
@@ -3067,6 +3087,8 @@ def generate_html(json_path, output_dir, github_repo=None):
         token_totals["output_tokens"],
         token_totals["total_tokens"],
         token_cost,
+        token_totals["cache_read_input_tokens"],
+        token_totals["cache_creation_input_tokens"],
     )
 
     index_content = index_template.render(
@@ -3224,7 +3246,7 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
         timestamp = entry.get("timestamp", "")
         is_compact_summary = entry.get("isCompactSummary", False)
         message_data = entry.get("message", {})
-        usage = entry.get("usage", {})
+        usage = extract_token_usage(entry)
         if not message_data:
             continue
         message_json = json.dumps(message_data)
@@ -3316,6 +3338,8 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
         token_totals["output_tokens"],
         token_totals["total_tokens"],
         token_cost,
+        token_totals["cache_read_input_tokens"],
+        token_totals["cache_creation_input_tokens"],
     )
 
     # Render the unified template
@@ -3703,7 +3727,7 @@ def generate_html_from_session_data(session_data, output_dir, github_repo=None):
         timestamp = entry.get("timestamp", "")
         is_compact_summary = entry.get("isCompactSummary", False)
         message_data = entry.get("message", {})
-        usage = entry.get("usage", {})
+        usage = extract_token_usage(entry)
         if not message_data:
             continue
         # Convert message dict to JSON string for compatibility with existing render functions
@@ -3838,6 +3862,8 @@ def generate_html_from_session_data(session_data, output_dir, github_repo=None):
         token_totals["output_tokens"],
         token_totals["total_tokens"],
         token_cost,
+        token_totals["cache_read_input_tokens"],
+        token_totals["cache_creation_input_tokens"],
     )
 
     index_content = index_template.render(
