@@ -32,7 +32,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 150, "output_tokens": 85}
     },
     {
       "type": "user",
@@ -69,7 +70,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 200, "output_tokens": 65}
     },
     {
       "type": "user",
@@ -111,7 +113,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 250, "output_tokens": 45}
     },
     {
       "type": "user",
@@ -144,7 +147,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 300, "output_tokens": 55}
     },
     {
       "type": "user",
@@ -181,7 +185,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 350, "output_tokens": 70}
     },
     {
       "type": "user",
@@ -222,7 +227,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 180, "output_tokens": 40}
     },
     {
       "type": "user",
@@ -256,7 +262,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 220, "output_tokens": 95}
     },
     {
       "type": "user",
@@ -294,7 +301,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 280, "output_tokens": 60}
     },
     {
       "type": "user",
@@ -335,7 +343,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 320, "output_tokens": 50}
     },
     {
       "type": "user",
@@ -363,7 +372,8 @@
             "text": "There's a test failure. I need to check the test file and fix it.\n\nHere's some **markdown** content with:\n- A bullet list\n- `inline code`\n- A [link](https://example.com)\n\n```python\ndef example():\n    return 42\n```"
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 400, "output_tokens": 120}
     },
     {
       "type": "user",
@@ -391,7 +401,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 450, "output_tokens": 55}
     },
     {
       "type": "user",
@@ -424,7 +435,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 480, "output_tokens": 60}
     },
     {
       "type": "user",
@@ -452,7 +464,8 @@
             "text": "Done! The subtract function is now working and committed."
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 520, "output_tokens": 30}
     },
     {
       "isCompactSummary": true,
@@ -488,7 +501,8 @@
             }
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 550, "output_tokens": 75}
     },
     {
       "type": "user",
@@ -516,7 +530,8 @@
             "text": "Added multiply function!"
           }
         ]
-      }
+      },
+      "usage": {"input_tokens": 580, "output_tokens": 20}
     }
   ]
 }
