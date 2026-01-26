@@ -1009,7 +1009,7 @@
       <main id="main-content" class="main-content">
           <header class="main-header">
               <h1>Claude Code Transcript</h1>
-              <p class="header-stats">1 prompts &middot; 4 messages &middot; 1 tool calls &middot; 1,100 in · 300 out · 1,400 total · $0.01</p>
+              <p class="header-stats">1 prompts &middot; 4 messages &middot; 1 tool calls &middot; token usage: 1,100 in · 300 out · 1,400 total · est. api cost $0.01</p>
           </header>
   
           <div id="search-results-banner" class="search-results-banner hidden">

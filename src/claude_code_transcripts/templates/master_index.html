@@ -4,7 +4,10 @@
 
 {% block content %}
         <h1>Claude Code Archive</h1>
-        <p style="color: var(--text-muted); margin-bottom: 24px;">{{ total_projects }} projects · {{ total_sessions }} sessions</p>
+        <p style="color: var(--text-muted); margin-bottom: 8px;">{{ total_projects }} projects · {{ total_sessions }} sessions</p>
+        {% if archive_token_stats %}
+        <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;">{{ archive_token_stats }}</p>
+        {% endif %}
 
         {% for project in projects %}
         <div class="index-item">
@@ -15,6 +18,9 @@
                 </div>
                 <div class="index-item-content">
                     <p style="margin: 0;">{{ project.session_count }} session{% if project.session_count != 1 %}s{% endif %}</p>
+                    {% if project.token_stats %}
+                    <p style="margin: 8px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">{{ project.token_stats }}</p>
+                    {% endif %}
                 </div>
             </a>
         </div>

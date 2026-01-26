@@ -221,6 +221,54 @@ def calculate_session_tokens(loglines):
     return totals
 
 
+def get_session_token_stats(filepath):
+    """Get token usage statistics for a session file.
+
+    Args:
+        filepath: Path to the session file (JSON or JSONL).
+
+    Returns:
+        Dict with token totals, cost, and formatted string.
+        Returns None if file cannot be parsed or has no token data.
+    """
+    try:
+        data = parse_session_file(filepath)
+        loglines = data.get("loglines", [])
+        token_totals = calculate_session_tokens(loglines)
+
+        # Skip if no tokens found
+        if token_totals["total_tokens"] == 0:
+            return None
+
+        cost = calculate_token_cost(
+            token_totals["input_tokens"],
+            token_totals["output_tokens"],
+            token_totals["cache_read_input_tokens"],
+            token_totals["cache_creation_input_tokens"],
+        )
+
+        formatted = format_token_stats(
+            token_totals["input_tokens"],
+            token_totals["output_tokens"],
+            token_totals["total_tokens"],
+            cost,
+            token_totals["cache_read_input_tokens"],
+            token_totals["cache_creation_input_tokens"],
+        )
+
+        return {
+            "input_tokens": token_totals["input_tokens"],
+            "output_tokens": token_totals["output_tokens"],
+            "total_tokens": token_totals["total_tokens"],
+            "cache_read_tokens": token_totals["cache_read_input_tokens"],
+            "cache_creation_tokens": token_totals["cache_creation_input_tokens"],
+            "cost": cost,
+            "formatted": formatted,
+        }
+    except Exception:
+        return None
+
+
 def calculate_token_cost(
     input_tokens,
     output_tokens,
@@ -293,8 +341,8 @@ def format_token_stats(
     if cache_creation_tokens > 0:
         parts.append(f"{format_number(cache_creation_tokens)} cache-write")
 
-    parts.append(f"${cost:.2f}")
-    return " · ".join(parts)
+    token_parts = " · ".join(parts)
+    return f"token usage: {token_parts} · est. api cost ${cost:.2f}"
 
 
 def get_session_summary(filepath, max_length=200):
@@ -621,17 +669,54 @@ def _generate_project_index(project, output_dir, new_ui=False):
     template_name = "project_index_unified.html" if new_ui else "project_index.html"
     template = get_template(template_name)
 
+    # Aggregate project token totals
+    project_totals = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "cost": 0.0,
+    }
+
     # Format sessions for template
     sessions_data = []
     for session in project["sessions"]:
         mod_time = datetime.fromtimestamp(session["mtime"])
-        sessions_data.append(
-            {
-                "name": session["path"].stem,
-                "summary": session["summary"],
-                "date": mod_time.strftime("%Y-%m-%d %H:%M"),
-                "size_kb": session["size"] / 1024,
-            }
+        session_data = {
+            "name": session["path"].stem,
+            "summary": session["summary"],
+            "date": mod_time.strftime("%Y-%m-%d %H:%M"),
+            "size_kb": session["size"] / 1024,
+            "token_stats": None,
+        }
+
+        # Get token stats for this session
+        token_stats = get_session_token_stats(session["path"])
+        if token_stats:
+            session_data["token_stats"] = token_stats["formatted"]
+            # Aggregate to project totals
+            project_totals["input_tokens"] += token_stats["input_tokens"]
+            project_totals["output_tokens"] += token_stats["output_tokens"]
+            project_totals["total_tokens"] += token_stats["total_tokens"]
+            project_totals["cache_read_tokens"] += token_stats["cache_read_tokens"]
+            project_totals["cache_creation_tokens"] += token_stats[
+                "cache_creation_tokens"
+            ]
+            project_totals["cost"] += token_stats["cost"]
+
+        sessions_data.append(session_data)
+
+    # Format project token stats
+    project_token_stats = None
+    if project_totals["total_tokens"] > 0:
+        project_token_stats = format_token_stats(
+            project_totals["input_tokens"],
+            project_totals["output_tokens"],
+            project_totals["total_tokens"],
+            project_totals["cost"],
+            project_totals["cache_read_tokens"],
+            project_totals["cache_creation_tokens"],
         )
 
     if new_ui:
@@ -640,12 +725,14 @@ def _generate_project_index(project, output_dir, new_ui=False):
             project_name=project["name"],
             sessions=sessions_data,
             session_count=len(sessions_data),
+            project_token_stats=project_token_stats,
         )
     else:
         html_content = template.render(
             project_name=project["name"],
             sessions=sessions_data,
             session_count=len(sessions_data),
+            project_token_stats=project_token_stats,
             css=CSS,
             js=JS,
         )
@@ -665,6 +752,16 @@ def _generate_master_index(projects, output_dir, new_ui=False):
     template_name = "master_index_unified.html" if new_ui else "master_index.html"
     template = get_template(template_name)
 
+    # Aggregate archive token totals
+    archive_totals = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "cost": 0.0,
+    }
+
     # Format projects for template
     projects_data = []
     total_sessions = 0
@@ -680,12 +777,68 @@ def _generate_master_index(projects, output_dir, new_ui=False):
         else:
             recent_date = "N/A"
 
+        # Aggregate token stats for this project
+        project_totals = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_creation_tokens": 0,
+            "cost": 0.0,
+        }
+
+        for session in project["sessions"]:
+            token_stats = get_session_token_stats(session["path"])
+            if token_stats:
+                project_totals["input_tokens"] += token_stats["input_tokens"]
+                project_totals["output_tokens"] += token_stats["output_tokens"]
+                project_totals["total_tokens"] += token_stats["total_tokens"]
+                project_totals["cache_read_tokens"] += token_stats["cache_read_tokens"]
+                project_totals["cache_creation_tokens"] += token_stats[
+                    "cache_creation_tokens"
+                ]
+                project_totals["cost"] += token_stats["cost"]
+
+        # Format project token stats
+        project_token_stats = None
+        if project_totals["total_tokens"] > 0:
+            project_token_stats = format_token_stats(
+                project_totals["input_tokens"],
+                project_totals["output_tokens"],
+                project_totals["total_tokens"],
+                project_totals["cost"],
+                project_totals["cache_read_tokens"],
+                project_totals["cache_creation_tokens"],
+            )
+            # Add to archive totals
+            archive_totals["input_tokens"] += project_totals["input_tokens"]
+            archive_totals["output_tokens"] += project_totals["output_tokens"]
+            archive_totals["total_tokens"] += project_totals["total_tokens"]
+            archive_totals["cache_read_tokens"] += project_totals["cache_read_tokens"]
+            archive_totals["cache_creation_tokens"] += project_totals[
+                "cache_creation_tokens"
+            ]
+            archive_totals["cost"] += project_totals["cost"]
+
         projects_data.append(
             {
                 "name": project["name"],
                 "session_count": session_count,
                 "recent_date": recent_date,
+                "token_stats": project_token_stats,
             }
+        )
+
+    # Format archive token stats
+    archive_token_stats = None
+    if archive_totals["total_tokens"] > 0:
+        archive_token_stats = format_token_stats(
+            archive_totals["input_tokens"],
+            archive_totals["output_tokens"],
+            archive_totals["total_tokens"],
+            archive_totals["cost"],
+            archive_totals["cache_read_tokens"],
+            archive_totals["cache_creation_tokens"],
         )
 
     if new_ui:
@@ -694,12 +847,14 @@ def _generate_master_index(projects, output_dir, new_ui=False):
             projects=projects_data,
             total_projects=len(projects),
             total_sessions=total_sessions,
+            archive_token_stats=archive_token_stats,
         )
     else:
         html_content = template.render(
             projects=projects_data,
             total_projects=len(projects),
             total_sessions=total_sessions,
+            archive_token_stats=archive_token_stats,
             css=CSS,
             js=JS,
         )
