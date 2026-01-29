@@ -48,6 +48,51 @@ LONG_TEXT_THRESHOLD = (
     300  # Characters - text blocks longer than this are shown in index
 )
 
+# Module-level dict mapping tool_use_id -> tool_name, populated during rendering
+_tool_id_to_name = {}
+
+
+def reset_tool_id_tracking():
+    """Reset the tool_use_id -> tool_name mapping. Call before rendering a new session."""
+    _tool_id_to_name.clear()
+
+
+def extract_tool_names_from_message(message_data):
+    """Extract tool names used in an assistant message's content blocks.
+
+    Returns a sorted list of unique tool names found in tool_use blocks.
+    Also registers the tool_use_id -> tool_name mapping as a side effect.
+    """
+    content = message_data.get("content", [])
+    if not isinstance(content, list):
+        return []
+    tool_names = []
+    for block in content:
+        if isinstance(block, dict) and block.get("type") == "tool_use":
+            tool_name = block.get("name", "Unknown")
+            tool_id = block.get("id", "")
+            tool_names.append(tool_name)
+            if tool_id:
+                _tool_id_to_name[tool_id] = tool_name
+    return sorted(set(tool_names))
+
+
+def resolve_tool_names_for_result(message_data):
+    """Resolve tool names for a tool-result message by looking up tool_use_ids.
+
+    Returns a sorted list of unique tool names for the tool results in this message.
+    """
+    content = message_data.get("content", [])
+    if not isinstance(content, list):
+        return []
+    tool_names = []
+    for block in content:
+        if isinstance(block, dict) and block.get("type") == "tool_result":
+            tool_use_id = block.get("tool_use_id", "")
+            if tool_use_id and tool_use_id in _tool_id_to_name:
+                tool_names.append(_tool_id_to_name[tool_use_id])
+    return sorted(set(tool_names))
+
 
 def extract_text_from_content(content):
     """Extract plain text from message content.
@@ -1331,16 +1376,23 @@ def render_message(log_type, message_json, timestamp, usage=None):
         return ""
 
     token_info = ""
+    data_tools = ""
     if log_type == "user":
         content_html = render_user_message_content(message_data)
         # Check if this is a tool result message
         if is_tool_result_message(message_data):
             role_class, role_label = "tool-reply", "Tool reply"
+            tool_names = resolve_tool_names_for_result(message_data)
+            if tool_names:
+                data_tools = ",".join(tool_names)
         else:
             role_class, role_label = "user", "User"
     elif log_type == "assistant":
         content_html = render_assistant_message(message_data)
         role_class, role_label = "assistant", "Assistant"
+        tool_names = extract_tool_names_from_message(message_data)
+        if tool_names:
+            data_tools = ",".join(tool_names)
         # Add token info for assistant messages
         if usage:
             input_tokens = usage.get("input_tokens", 0)
@@ -1353,7 +1405,7 @@ def render_message(log_type, message_json, timestamp, usage=None):
         return ""
     msg_id = make_msg_id(timestamp)
     return _macros.message(
-        role_class, role_label, msg_id, timestamp, content_html, token_info
+        role_class, role_label, msg_id, timestamp, content_html, token_info, data_tools
     )
 
 
@@ -2444,7 +2496,17 @@ pre code { background: none; padding: 0; }
 
 .filter-toggle[data-filter="user"] .filter-indicator { background: var(--user-border); }
 .filter-toggle[data-filter="assistant"] .filter-indicator { background: var(--assistant-border); }
-.filter-toggle[data-filter="tool"] .filter-indicator { background: var(--tool-border); }
+.filter-toggle[data-filter="Bash"] .filter-indicator { background: #22c55e; }
+.filter-toggle[data-filter="Read"] .filter-indicator { background: #3b82f6; }
+.filter-toggle[data-filter="Write"] .filter-indicator { background: #10b981; }
+.filter-toggle[data-filter="Edit"] .filter-indicator { background: #f59e0b; }
+.filter-toggle[data-filter="Glob"] .filter-indicator { background: #8b5cf6; }
+.filter-toggle[data-filter="Grep"] .filter-indicator { background: #ec4899; }
+.filter-toggle[data-filter="Task"] .filter-indicator { background: #06b6d4; }
+.filter-toggle[data-filter="TodoWrite"] .filter-indicator { background: #f97316; }
+.filter-toggle[data-filter="WebFetch"] .filter-indicator { background: #14b8a6; }
+.filter-toggle[data-filter="WebSearch"] .filter-indicator { background: #6366f1; }
+.filter-toggle[data-filter="NotebookEdit"] .filter-indicator { background: #d946ef; }
 
 /* Search input with clear button */
 .search-container {
@@ -2905,23 +2967,44 @@ UNIFIED_JS = """
 
     // Message type filter functionality
     const filterToggles = document.querySelectorAll('.filter-toggle');
-    const filters = { user: true, assistant: true, tool: true };
+    const filters = {};
+    filterToggles.forEach(function(toggle) {
+        filters[toggle.getAttribute('data-filter')] = true;
+    });
 
     function applyFilters() {
         document.querySelectorAll('.message-wrapper').forEach(function(wrapper) {
             const message = wrapper.querySelector('.message');
             if (!message) return;
 
-            let messageType = null;
-            if (message.classList.contains('user')) messageType = 'user';
-            else if (message.classList.contains('assistant')) messageType = 'assistant';
-            else if (message.classList.contains('tool-reply')) messageType = 'tool';
+            var shouldHide = false;
+            var dataTools = message.getAttribute('data-tools');
+            var toolList = dataTools ? dataTools.split(',') : [];
 
-            if (messageType && !filters[messageType]) {
-                wrapper.style.display = 'none';
-            } else {
-                wrapper.style.display = '';
+            if (message.classList.contains('user') && !message.classList.contains('tool-reply')) {
+                // Regular user message
+                if (!filters['user']) shouldHide = true;
+            } else if (message.classList.contains('assistant')) {
+                // Assistant message - hide if assistant filter is off
+                if (!filters['assistant']) shouldHide = true;
+                // Also hide if all tools in this message are filtered out
+                if (!shouldHide && toolList.length > 0) {
+                    var anyToolVisible = toolList.some(function(t) {
+                        return filters[t] !== false;
+                    });
+                    if (!anyToolVisible) shouldHide = true;
+                }
+            } else if (message.classList.contains('tool-reply')) {
+                // Tool reply message - hide if all its tools are filtered out
+                if (toolList.length > 0) {
+                    var anyVisible = toolList.some(function(t) {
+                        return filters[t] !== false;
+                    });
+                    if (!anyVisible) shouldHide = true;
+                }
             }
+
+            wrapper.style.display = shouldHide ? 'none' : '';
         });
     }
 
@@ -3324,16 +3407,25 @@ def render_message_unified(log_type, message_json, timestamp, usage=None):
         return ""
 
     token_info = ""
+    data_tools = ""
     if log_type == "user":
         content_html = render_user_message_content_unified(message_data)
         # Check if this is a tool result message
         if is_tool_result_message(message_data):
             role_class, role_label = "tool-reply", "Tool reply"
+            # Resolve tool names from tool_use_id mapping
+            tool_names = resolve_tool_names_for_result(message_data)
+            if tool_names:
+                data_tools = ",".join(tool_names)
         else:
             role_class, role_label = "user", "User"
     elif log_type == "assistant":
         content_html = render_assistant_message(message_data)
         role_class, role_label = "assistant", "Assistant"
+        # Extract tool names used in this assistant message
+        tool_names = extract_tool_names_from_message(message_data)
+        if tool_names:
+            data_tools = ",".join(tool_names)
         # Add token info for assistant messages
         if usage:
             input_tokens = usage.get("input_tokens", 0)
@@ -3346,7 +3438,7 @@ def render_message_unified(log_type, message_json, timestamp, usage=None):
         return ""
     msg_id = make_msg_id(timestamp)
     return _macros.message(
-        role_class, role_label, msg_id, timestamp, content_html, token_info
+        role_class, role_label, msg_id, timestamp, content_html, token_info, data_tools
     )
 
 
@@ -3369,6 +3461,9 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True)
+
+    # Reset tool tracking for this session
+    reset_tool_id_tracking()
 
     # Load session file (supports both JSON and JSONL)
     data = parse_session_file(json_path)
@@ -3487,6 +3582,9 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
 
     total_tool_calls = sum(total_tool_counts.values())
 
+    # Collect sorted list of tool types used in this session
+    session_tool_types = sorted(total_tool_counts.keys())
+
     # Format token stats for display
     token_stats_str = format_token_stats(
         token_totals["input_tokens"],
@@ -3507,6 +3605,7 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
         prompt_count=prompt_num,
         message_count=total_messages,
         tool_count=total_tool_calls,
+        session_tool_types=session_tool_types,
         breadcrumbs=breadcrumbs,
         token_stats=token_stats_str,
         input_tokens=token_totals["input_tokens"],
