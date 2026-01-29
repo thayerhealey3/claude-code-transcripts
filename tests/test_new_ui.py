@@ -530,15 +530,191 @@ class TestMessageTypeFilters:
         # Should have assistant filter toggle
         assert 'data-filter="assistant"' in html
 
-    def test_has_tool_message_filter(self, output_dir):
-        """Test that tool message filter toggle exists."""
+    def test_has_tool_type_filters(self, output_dir):
+        """Test that individual tool type filter toggles exist for tools used in session."""
         fixture_path = Path(__file__).parent / "sample_session.json"
 
         generate_unified_html(fixture_path, output_dir)
 
         html = (output_dir / "unified.html").read_text(encoding="utf-8")
-        # Should have tool filter toggle
-        assert 'data-filter="tool"' in html
+        # Sample session uses Write, Bash, TodoWrite, Glob, Edit, Grep
+        assert 'data-filter="Write"' in html
+        assert 'data-filter="Bash"' in html
+        assert 'data-filter="Edit"' in html
+        assert 'data-filter="Grep"' in html
+        assert 'data-filter="Glob"' in html
+        assert 'data-filter="TodoWrite"' in html
+
+    def test_no_generic_tool_filter(self, output_dir):
+        """Test that the old generic 'tool' filter is replaced by specific tool types."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should NOT have the old generic tool filter
+        assert 'data-filter="tool"' not in html
+
+    def test_only_used_tools_get_filters(self, output_dir):
+        """Test that only tools actually used in the session get filter buttons."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Hello", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "text", "text": "Let me read that file."},
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_001",
+                                "name": "Read",
+                                "input": {"file_path": "/tmp/test.py"},
+                            },
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_001",
+                                "content": "file contents here",
+                            }
+                        ],
+                    },
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have Read filter button since it's used
+        assert '<label class="filter-toggle active" data-filter="Read">' in html
+        # Should NOT have filter buttons for unused tools
+        assert '<label class="filter-toggle active" data-filter="Bash">' not in html
+        assert '<label class="filter-toggle active" data-filter="Write">' not in html
+
+    def test_tool_reply_has_data_tools_attribute(self, output_dir):
+        """Test that tool-reply messages have data-tools attribute identifying the tool."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Run tests", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_bash_001",
+                                "name": "Bash",
+                                "input": {
+                                    "command": "pytest",
+                                    "description": "Run tests",
+                                },
+                            }
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_bash_001",
+                                "content": "All tests passed",
+                            }
+                        ],
+                    },
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Tool reply message should have data-tools attribute
+        assert 'data-tools="Bash"' in html
+
+    def test_assistant_message_has_data_tools_attribute(self, output_dir):
+        """Test that assistant messages with tools have data-tools attribute."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Write a file", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "text", "text": "Writing file."},
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_001",
+                                "name": "Write",
+                                "input": {
+                                    "file_path": "/tmp/test.py",
+                                    "content": "print('hello')",
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_001",
+                                "content": "File written",
+                            }
+                        ],
+                    },
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Assistant message should have data-tools listing tool names
+        assert 'data-tools="Write"' in html
 
     def test_filters_on_by_default(self, output_dir):
         """Test that all filters are on by default."""
@@ -559,6 +735,16 @@ class TestMessageTypeFilters:
         html = (output_dir / "unified.html").read_text(encoding="utf-8")
         # Should have JS that handles filter toggling
         assert "toggleFilter" in html or "filter-toggle" in html
+
+    def test_filter_js_handles_data_tools(self, output_dir):
+        """Test that filter JavaScript uses data-tools attribute for tool filtering."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # JS should reference data-tools for filtering
+        assert "data-tools" in html
 
 
 class TestSearchClearButton:

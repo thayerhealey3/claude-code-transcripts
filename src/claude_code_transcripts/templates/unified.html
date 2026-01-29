@@ -32,10 +32,12 @@
                 <span class="filter-indicator"></span>
                 <span>Assistant</span>
             </label>
-            <label class="filter-toggle active" data-filter="tool">
+            {%- for tool_type in session_tool_types %}
+            <label class="filter-toggle active" data-filter="{{ tool_type }}">
                 <span class="filter-indicator"></span>
-                <span>Tool</span>
+                <span>{{ tool_type }}</span>
             </label>
+            {%- endfor %}
         </div>
 
         <div class="sidebar-stats">
