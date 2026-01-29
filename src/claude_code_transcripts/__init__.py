@@ -2063,11 +2063,18 @@ body {
     margin-top: 12px;
     max-width: 500px;
 }
-.header-mini-chart .mini-bar-container {
+.header-mini-chart .mini-chart-row {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
+}
+.header-mini-chart .mini-bar-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    width: 38px;
+    flex-shrink: 0;
+    text-align: right;
 }
 .header-mini-chart .mini-bar {
     flex: 1;
@@ -2082,9 +2089,10 @@ body {
 }
 .header-mini-chart .mini-stats {
     display: flex;
-    gap: 12px;
+    justify-content: space-between;
     font-size: 0.75rem;
     color: var(--text-muted);
+    margin-top: 6px;
 }
 .header-mini-chart .mini-cost {
     font-weight: 600;
@@ -2658,21 +2666,33 @@ UNIFIED_JS = """
         var cr = parseInt(el.dataset.cacheRead) || 0;
         var cw = parseInt(el.dataset.cacheWrite) || 0;
         var cost = parseFloat(el.dataset.cost) || 0;
-        var grand = inp + out + cr + cw;
-        if (grand === 0) return;
-        var segs = [
-            {v: inp, c: '#3b82f6', l: 'in'},
-            {v: out, c: '#8b5cf6', l: 'out'},
-            {v: cr, c: '#06b6d4', l: 'cached'},
-            {v: cw, c: '#f59e0b', l: 'cache-wr'}
-        ].filter(function(s) { return s.v > 0; });
-        var bar = segs.map(function(s) {
-            return '<div class="mini-bar-segment" style="width:' + (s.v/grand*100).toFixed(1) + '%;background:' + s.c + '" title="' + s.l + ': ' + fmtN(s.v) + '"></div>';
-        }).join('');
-        var stats = segs.map(function(s) {
+        var ioTotal = inp + out;
+        var cacheTotal = cr + cw;
+        if (ioTotal === 0 && cacheTotal === 0) return;
+        var html = '';
+        // IO bar
+        if (ioTotal > 0) {
+            var ioSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#8b5cf6', l: 'out'}].filter(function(s) { return s.v > 0; });
+            var ioBar = ioSegs.map(function(s) {
+                return '<div class="mini-bar-segment" style="width:' + (s.v/ioTotal*100).toFixed(1) + '%;background:' + s.c + '" title="' + s.l + ': ' + fmtN(s.v) + '"></div>';
+            }).join('');
+            html += '<div class="mini-chart-row"><span class="mini-bar-label">i/o</span><div class="mini-bar">' + ioBar + '</div></div>';
+        }
+        // Cache bar
+        if (cacheTotal > 0) {
+            var cacheSegs = [{v: cr, c: '#06b6d4', l: 'cached'}, {v: cw, c: '#f59e0b', l: 'cache-wr'}].filter(function(s) { return s.v > 0; });
+            var cacheBar = cacheSegs.map(function(s) {
+                return '<div class="mini-bar-segment" style="width:' + (s.v/cacheTotal*100).toFixed(1) + '%;background:' + s.c + '" title="' + s.l + ': ' + fmtN(s.v) + '"></div>';
+            }).join('');
+            html += '<div class="mini-chart-row"><span class="mini-bar-label">cache</span><div class="mini-bar">' + cacheBar + '</div></div>';
+        }
+        // Stats line
+        var allSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#8b5cf6', l: 'out'}, {v: cr, c: '#06b6d4', l: 'cached'}, {v: cw, c: '#f59e0b', l: 'cache-wr'}].filter(function(s) { return s.v > 0; });
+        var stats = allSegs.map(function(s) {
             return '<span><span style="color:' + s.c + '">' + fmtN(s.v) + '</span> ' + s.l + '</span>';
         }).join(' &middot; ');
-        el.innerHTML = '<div class="mini-bar-container"><div class="mini-bar">' + bar + '</div><span class="mini-cost">$' + cost.toFixed(2) + '</span></div><div class="mini-stats">' + stats + '</div>';
+        html += '<div class="mini-stats"><span>' + stats + '</span><span class="mini-cost">$' + cost.toFixed(2) + '</span></div>';
+        el.innerHTML = html;
     });
 
     // Format timestamps

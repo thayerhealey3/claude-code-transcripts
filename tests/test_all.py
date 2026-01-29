@@ -587,7 +587,11 @@ class TestTokenUsageCharts:
         generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
         html = (output_dir / "index.html").read_text()
         assert "dashboard" in html
-        assert "donut-chart" in html or "archive-donut" in html
+        # Split donuts: one for I/O, one for cache
+        assert "archive-donut-io" in html
+        assert "archive-donut-cache" in html
+        assert "Input / Output" in html
+        assert "Cache Tokens" in html
         assert "Estimated API Cost" in html
 
     def test_master_index_has_mini_charts_per_project(
@@ -607,7 +611,11 @@ class TestTokenUsageCharts:
         generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
         html = (output_dir / "project-a" / "index.html").read_text()
         assert "dashboard" in html
-        assert "project-donut" in html
+        # Split donuts: one for I/O, one for cache
+        assert "project-donut-io" in html
+        assert "project-donut-cache" in html
+        assert "Input / Output" in html
+        assert "Cache Tokens" in html
         assert "Estimated API Cost" in html
 
     def test_project_index_has_mini_charts_per_session(
@@ -631,6 +639,14 @@ class TestTokenUsageCharts:
         html = (session_dirs[0] / "unified.html").read_text()
         assert "header-mini-chart" in html
         assert "data-input=" in html
+
+    def test_mini_charts_have_split_bars(self, mock_projects_with_usage, output_dir):
+        """Test that mini charts have separate i/o and cache bars."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "index.html").read_text()
+        # The JS creates separate bars for i/o and cache
+        assert "mini-chart-row" in html
+        assert "mini-bar-label" in html
 
     def test_chart_js_functions_present_in_master_index(
         self, mock_projects_with_usage, output_dir
@@ -656,9 +672,10 @@ class TestTokenUsageCharts:
         """Test that no dashboard appears when there's no token data."""
         generate_batch_html(mock_projects_dir, output_dir, new_ui=True)
         html = (output_dir / "index.html").read_text()
-        # Dashboard HTML element should not appear since mock data has no usage
-        # (JS references 'archive-donut' unconditionally, but the element is conditional)
-        assert 'id="archive-donut"' not in html
+        # Dashboard HTML elements should not appear since mock data has no usage
+        # (JS references donut IDs unconditionally, but the elements are conditional)
+        assert 'id="archive-donut-io"' not in html
+        assert 'id="archive-donut-cache"' not in html
         assert '<div class="dashboard">' not in html
 
 
