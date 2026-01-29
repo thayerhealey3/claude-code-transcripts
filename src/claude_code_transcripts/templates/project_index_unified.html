@@ -154,6 +154,19 @@ header h1 {
     -webkit-box-orient: vertical;
 }
 
+.session-tokens {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.project-tokens {
+    margin-top: 8px;
+    font-size: 0.9rem;
+}
+
 .back-link {
     display: inline-flex;
     align-items: center;
@@ -237,6 +250,9 @@ footer a:hover {
         <header>
             <h1>{{ project_name }}</h1>
             <p class="project-stats">{{ session_count }} session{% if session_count != 1 %}s{% endif %}</p>
+            {% if project_token_stats %}
+            <p class="project-stats project-tokens">{{ project_token_stats }}</p>
+            {% endif %}
         </header>
 
         <div class="search-box">
@@ -252,6 +268,9 @@ footer a:hover {
                         <span class="session-size">{{ "%.0f"|format(session.size_kb) }} KB</span>
                     </div>
                     <div class="session-summary">{{ session.summary[:150] }}{% if session.summary|length > 150 %}...{% endif %}</div>
+                    {% if session.token_stats %}
+                    <div class="session-tokens">{{ session.token_stats }}</div>
+                    {% endif %}
                 </a>
             </div>
             {% endfor %}

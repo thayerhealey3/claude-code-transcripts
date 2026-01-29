@@ -4,7 +4,10 @@
 
 {% block content %}
         <h1><a href="../index.html" style="color: inherit; text-decoration: none;">Claude Code Archive</a> / {{ project_name }}</h1>
-        <p style="color: var(--text-muted); margin-bottom: 24px;">{{ session_count }} session{% if session_count != 1 %}s{% endif %}</p>
+        <p style="color: var(--text-muted); margin-bottom: 8px;">{{ session_count }} session{% if session_count != 1 %}s{% endif %}</p>
+        {% if project_token_stats %}
+        <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;">{{ project_token_stats }}</p>
+        {% endif %}
 
         {% for session in sessions %}
         <div class="index-item">
@@ -15,6 +18,9 @@
                 </div>
                 <div class="index-item-content">
                     <p style="margin: 0;">{{ session.summary[:100] }}{% if session.summary|length > 100 %}...{% endif %}</p>
+                    {% if session.token_stats %}
+                    <p style="margin: 8px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">{{ session.token_stats }}</p>
+                    {% endif %}
                 </div>
             </a>
         </div>

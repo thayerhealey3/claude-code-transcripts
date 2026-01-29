@@ -131,6 +131,18 @@ header h1 {
     color: var(--text-muted);
 }
 
+.project-tokens {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.archive-tokens {
+    margin-top: 8px;
+}
+
 .session-count {
     display: inline-flex;
     align-items: center;
@@ -198,6 +210,9 @@ footer a:hover {
         <header>
             <h1>Claude Code Archive</h1>
             <p class="archive-stats">{{ total_projects }} projects &middot; {{ total_sessions }} sessions</p>
+            {% if archive_token_stats %}
+            <p class="archive-stats archive-tokens">{{ archive_token_stats }}</p>
+            {% endif %}
         </header>
 
         <div class="search-box">
@@ -215,6 +230,9 @@ footer a:hover {
                     <div class="project-meta">
                         <span class="session-count">{{ project.session_count }} session{% if project.session_count != 1 %}s{% endif %}</span>
                     </div>
+                    {% if project.token_stats %}
+                    <div class="project-tokens">{{ project.token_stats }}</div>
+                    {% endif %}
                 </a>
             </div>
             {% endfor %}
