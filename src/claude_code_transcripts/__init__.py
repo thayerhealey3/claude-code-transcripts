@@ -695,6 +695,12 @@ def _generate_project_index(project, output_dir, new_ui=False):
         token_stats = get_session_token_stats(session["path"])
         if token_stats:
             session_data["token_stats"] = token_stats["formatted"]
+            session_data["input_tokens"] = token_stats["input_tokens"]
+            session_data["output_tokens"] = token_stats["output_tokens"]
+            session_data["total_tokens"] = token_stats["total_tokens"]
+            session_data["cache_read_tokens"] = token_stats["cache_read_tokens"]
+            session_data["cache_creation_tokens"] = token_stats["cache_creation_tokens"]
+            session_data["cost"] = token_stats["cost"]
             # Aggregate to project totals
             project_totals["input_tokens"] += token_stats["input_tokens"]
             project_totals["output_tokens"] += token_stats["output_tokens"]
@@ -726,6 +732,9 @@ def _generate_project_index(project, output_dir, new_ui=False):
             sessions=sessions_data,
             session_count=len(sessions_data),
             project_token_stats=project_token_stats,
+            project_totals=(
+                project_totals if project_totals["total_tokens"] > 0 else None
+            ),
         )
     else:
         html_content = template.render(
@@ -733,6 +742,9 @@ def _generate_project_index(project, output_dir, new_ui=False):
             sessions=sessions_data,
             session_count=len(sessions_data),
             project_token_stats=project_token_stats,
+            project_totals=(
+                project_totals if project_totals["total_tokens"] > 0 else None
+            ),
             css=CSS,
             js=JS,
         )
@@ -820,14 +832,22 @@ def _generate_master_index(projects, output_dir, new_ui=False):
             ]
             archive_totals["cost"] += project_totals["cost"]
 
-        projects_data.append(
-            {
-                "name": project["name"],
-                "session_count": session_count,
-                "recent_date": recent_date,
-                "token_stats": project_token_stats,
-            }
-        )
+        project_data = {
+            "name": project["name"],
+            "session_count": session_count,
+            "recent_date": recent_date,
+            "token_stats": project_token_stats,
+        }
+        if project_totals["total_tokens"] > 0:
+            project_data["input_tokens"] = project_totals["input_tokens"]
+            project_data["output_tokens"] = project_totals["output_tokens"]
+            project_data["total_tokens"] = project_totals["total_tokens"]
+            project_data["cache_read_tokens"] = project_totals["cache_read_tokens"]
+            project_data["cache_creation_tokens"] = project_totals[
+                "cache_creation_tokens"
+            ]
+            project_data["cost"] = project_totals["cost"]
+        projects_data.append(project_data)
 
     # Format archive token stats
     archive_token_stats = None
@@ -848,6 +868,9 @@ def _generate_master_index(projects, output_dir, new_ui=False):
             total_projects=len(projects),
             total_sessions=total_sessions,
             archive_token_stats=archive_token_stats,
+            archive_totals=(
+                archive_totals if archive_totals["total_tokens"] > 0 else None
+            ),
         )
     else:
         html_content = template.render(
@@ -855,6 +878,9 @@ def _generate_master_index(projects, output_dir, new_ui=False):
             total_projects=len(projects),
             total_sessions=total_sessions,
             archive_token_stats=archive_token_stats,
+            archive_totals=(
+                archive_totals if archive_totals["total_tokens"] > 0 else None
+            ),
             css=CSS,
             js=JS,
         )
@@ -2033,6 +2059,38 @@ body {
     border-radius: 4px;
 }
 
+.header-mini-chart {
+    margin-top: 12px;
+    max-width: 500px;
+}
+.header-mini-chart .mini-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+.header-mini-chart .mini-bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    background: var(--border-color);
+}
+.header-mini-chart .mini-bar-segment {
+    height: 100%;
+}
+.header-mini-chart .mini-stats {
+    display: flex;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.header-mini-chart .mini-cost {
+    font-weight: 600;
+    color: #10b981;
+}
+
 time { color: var(--text-muted); font-size: 0.8rem; }
 .timestamp-link { color: inherit; text-decoration: none; }
 .timestamp-link:hover { text-decoration: underline; }
@@ -2586,6 +2644,36 @@ UNIFIED_JS = """
             console.log('[Claude Transcripts] Token info', i, ':', el.textContent);
         });
     }
+
+    // Render header mini chart
+    function fmtN(n) {
+        if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+        if (n >= 1000) return n.toLocaleString();
+        return String(n);
+    }
+
+    document.querySelectorAll('.header-mini-chart').forEach(function(el) {
+        var inp = parseInt(el.dataset.input) || 0;
+        var out = parseInt(el.dataset.output) || 0;
+        var cr = parseInt(el.dataset.cacheRead) || 0;
+        var cw = parseInt(el.dataset.cacheWrite) || 0;
+        var cost = parseFloat(el.dataset.cost) || 0;
+        var grand = inp + out + cr + cw;
+        if (grand === 0) return;
+        var segs = [
+            {v: inp, c: '#3b82f6', l: 'in'},
+            {v: out, c: '#8b5cf6', l: 'out'},
+            {v: cr, c: '#06b6d4', l: 'cached'},
+            {v: cw, c: '#f59e0b', l: 'cache-wr'}
+        ].filter(function(s) { return s.v > 0; });
+        var bar = segs.map(function(s) {
+            return '<div class="mini-bar-segment" style="width:' + (s.v/grand*100).toFixed(1) + '%;background:' + s.c + '" title="' + s.l + ': ' + fmtN(s.v) + '"></div>';
+        }).join('');
+        var stats = segs.map(function(s) {
+            return '<span><span style="color:' + s.c + '">' + fmtN(s.v) + '</span> ' + s.l + '</span>';
+        }).join(' &middot; ');
+        el.innerHTML = '<div class="mini-bar-container"><div class="mini-bar">' + bar + '</div><span class="mini-cost">$' + cost.toFixed(2) + '</span></div><div class="mini-stats">' + stats + '</div>';
+    });
 
     // Format timestamps
     document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
@@ -3260,6 +3348,8 @@ def generate_html(json_path, output_dir, github_repo=None):
         input_tokens=token_totals["input_tokens"],
         output_tokens=token_totals["output_tokens"],
         total_tokens=token_totals["total_tokens"],
+        cache_read_tokens=token_totals["cache_read_input_tokens"],
+        cache_creation_tokens=token_totals["cache_creation_input_tokens"],
         token_cost=token_cost,
     )
     index_path = output_dir / "index.html"
@@ -3512,6 +3602,8 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
         input_tokens=token_totals["input_tokens"],
         output_tokens=token_totals["output_tokens"],
         total_tokens=token_totals["total_tokens"],
+        cache_read_tokens=token_totals["cache_read_input_tokens"],
+        cache_creation_tokens=token_totals["cache_creation_input_tokens"],
         token_cost=token_cost,
     )
 
@@ -4035,6 +4127,8 @@ def generate_html_from_session_data(session_data, output_dir, github_repo=None):
         input_tokens=token_totals["input_tokens"],
         output_tokens=token_totals["output_tokens"],
         total_tokens=token_totals["total_tokens"],
+        cache_read_tokens=token_totals["cache_read_input_tokens"],
+        cache_creation_tokens=token_totals["cache_creation_input_tokens"],
         token_cost=token_cost,
     )
     index_path = output_dir / "index.html"

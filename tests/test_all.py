@@ -552,6 +552,116 @@ class TestAllCommandNewUi:
         assert "../../index.html" in session_html  # Back to archive
 
 
+@pytest.fixture
+def mock_projects_with_usage():
+    """Create a mock projects structure with token usage data."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        projects_dir = Path(tmpdir)
+
+        # Create project with sessions that have usage data
+        project_a = projects_dir / "-home-user-projects-project-a"
+        project_a.mkdir(parents=True)
+
+        session_a1 = project_a / "sess001.jsonl"
+        session_a1.write_text(
+            '{"type": "user", "timestamp": "2025-01-01T10:00:00.000Z", "message": {"role": "user", "content": "Hello"}}\n'
+            '{"type": "assistant", "timestamp": "2025-01-01T10:00:05.000Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Hi!"}], "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 200, "cache_creation_input_tokens": 80}}}\n'
+        )
+
+        session_a2 = project_a / "sess002.jsonl"
+        session_a2.write_text(
+            '{"type": "user", "timestamp": "2025-01-02T10:00:00.000Z", "message": {"role": "user", "content": "More work"}}\n'
+            '{"type": "assistant", "timestamp": "2025-01-02T10:00:05.000Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Done!"}], "usage": {"input_tokens": 300, "output_tokens": 150, "cache_read_input_tokens": 500, "cache_creation_input_tokens": 120}}}\n'
+        )
+
+        yield projects_dir
+
+
+class TestTokenUsageCharts:
+    """Tests for token usage dashboard charts and mini charts."""
+
+    def test_master_index_has_dashboard_with_usage(
+        self, mock_projects_with_usage, output_dir
+    ):
+        """Test that master index has a dashboard when token data exists."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "index.html").read_text()
+        assert "dashboard" in html
+        assert "donut-chart" in html or "archive-donut" in html
+        assert "Estimated API Cost" in html
+
+    def test_master_index_has_mini_charts_per_project(
+        self, mock_projects_with_usage, output_dir
+    ):
+        """Test that each project card has a mini chart widget."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "index.html").read_text()
+        assert "mini-chart" in html
+        assert "data-input=" in html
+        assert "data-output=" in html
+
+    def test_project_index_has_dashboard_with_usage(
+        self, mock_projects_with_usage, output_dir
+    ):
+        """Test that project index has a dashboard when token data exists."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "project-a" / "index.html").read_text()
+        assert "dashboard" in html
+        assert "project-donut" in html
+        assert "Estimated API Cost" in html
+
+    def test_project_index_has_mini_charts_per_session(
+        self, mock_projects_with_usage, output_dir
+    ):
+        """Test that each session card has a mini chart widget."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "project-a" / "index.html").read_text()
+        assert "mini-chart" in html
+        # Should have data attributes for chart rendering
+        assert "data-input=" in html
+        assert "data-cost=" in html
+
+    def test_session_unified_has_mini_chart_in_header(
+        self, mock_projects_with_usage, output_dir
+    ):
+        """Test that session unified.html has a mini chart in the header."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        project_dir = output_dir / "project-a"
+        session_dirs = [d for d in project_dir.iterdir() if d.is_dir()]
+        html = (session_dirs[0] / "unified.html").read_text()
+        assert "header-mini-chart" in html
+        assert "data-input=" in html
+
+    def test_chart_js_functions_present_in_master_index(
+        self, mock_projects_with_usage, output_dir
+    ):
+        """Test that chart JavaScript functions are included."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "index.html").read_text()
+        assert "createDonutChart" in html
+        assert "createMiniBar" in html
+        assert "createLegend" in html
+
+    def test_chart_css_variables_present(self, mock_projects_with_usage, output_dir):
+        """Test that chart CSS color variables are defined."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "index.html").read_text()
+        assert "--chart-input" in html
+        assert "--chart-output" in html
+        assert "--chart-cache-read" in html
+        assert "--chart-cache-write" in html
+        assert "--chart-cost" in html
+
+    def test_no_dashboard_without_token_data(self, mock_projects_dir, output_dir):
+        """Test that no dashboard appears when there's no token data."""
+        generate_batch_html(mock_projects_dir, output_dir, new_ui=True)
+        html = (output_dir / "index.html").read_text()
+        # Dashboard HTML element should not appear since mock data has no usage
+        # (JS references 'archive-donut' unconditionally, but the element is conditional)
+        assert 'id="archive-donut"' not in html
+        assert '<div class="dashboard">' not in html
+
+
 class TestJsonCommandWithUrl:
     """Tests for the json command with URL support."""
 

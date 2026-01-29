@@ -417,6 +417,38 @@
       border-radius: 4px;
   }
   
+  .header-mini-chart {
+      margin-top: 12px;
+      max-width: 500px;
+  }
+  .header-mini-chart .mini-bar-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+  }
+  .header-mini-chart .mini-bar {
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      background: var(--border-color);
+  }
+  .header-mini-chart .mini-bar-segment {
+      height: 100%;
+  }
+  .header-mini-chart .mini-stats {
+      display: flex;
+      gap: 12px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+  }
+  .header-mini-chart .mini-cost {
+      font-weight: 600;
+      color: #10b981;
+  }
+  
   time { color: var(--text-muted); font-size: 0.8rem; }
   .timestamp-link { color: inherit; text-decoration: none; }
   .timestamp-link:hover { text-decoration: underline; }
@@ -1010,6 +1042,16 @@
           <header class="main-header">
               <h1>Claude Code Transcript</h1>
               <p class="header-stats">1 prompts &middot; 4 messages &middot; 1 tool calls &middot; token usage: 1,100 in · 300 out · 1,400 total · est. api cost $0.01</p>
+              
+              <div class="header-mini-chart"
+                   data-input="1100"
+                   data-output="300"
+                   data-cache-read="0"
+                   data-cache-write="0"
+                   data-cost="0.0078"
+                   data-total="1400">
+              </div>
+              
           </header>
   
           <div id="search-results-banner" class="search-results-banner hidden">
@@ -1068,6 +1110,36 @@
               console.log('[Claude Transcripts] Token info', i, ':', el.textContent);
           });
       }
+  
+      // Render header mini chart
+      function fmtN(n) {
+          if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+          if (n >= 1000) return n.toLocaleString();
+          return String(n);
+      }
+  
+      document.querySelectorAll('.header-mini-chart').forEach(function(el) {
+          var inp = parseInt(el.dataset.input) || 0;
+          var out = parseInt(el.dataset.output) || 0;
+          var cr = parseInt(el.dataset.cacheRead) || 0;
+          var cw = parseInt(el.dataset.cacheWrite) || 0;
+          var cost = parseFloat(el.dataset.cost) || 0;
+          var grand = inp + out + cr + cw;
+          if (grand === 0) return;
+          var segs = [
+              {v: inp, c: '#3b82f6', l: 'in'},
+              {v: out, c: '#8b5cf6', l: 'out'},
+              {v: cr, c: '#06b6d4', l: 'cached'},
+              {v: cw, c: '#f59e0b', l: 'cache-wr'}
+          ].filter(function(s) { return s.v > 0; });
+          var bar = segs.map(function(s) {
+              return '<div class="mini-bar-segment" style="width:' + (s.v/grand*100).toFixed(1) + '%;background:' + s.c + '" title="' + s.l + ': ' + fmtN(s.v) + '"></div>';
+          }).join('');
+          var stats = segs.map(function(s) {
+              return '<span><span style="color:' + s.c + '">' + fmtN(s.v) + '</span> ' + s.l + '</span>';
+          }).join(' &middot; ');
+          el.innerHTML = '<div class="mini-bar-container"><div class="mini-bar">' + bar + '</div><span class="mini-cost">$' + cost.toFixed(2) + '</span></div><div class="mini-stats">' + stats + '</div>';
+      });
   
       // Format timestamps
       document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
