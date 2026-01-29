@@ -81,6 +81,16 @@
             {%- endif %}
             <h1>Claude Code Transcript</h1>
             <p class="header-stats">{{ prompt_count }} prompts &middot; {{ message_count }} messages &middot; {{ tool_count }} tool calls{% if total_tokens > 0 %} &middot; {{ token_stats }}{% endif %}</p>
+            {% if total_tokens > 0 %}
+            <div class="header-mini-chart"
+                 data-input="{{ input_tokens }}"
+                 data-output="{{ output_tokens }}"
+                 data-cache-read="{{ cache_read_tokens }}"
+                 data-cache-write="{{ cache_creation_tokens }}"
+                 data-cost="{{ token_cost }}"
+                 data-total="{{ total_tokens }}">
+            </div>
+            {% endif %}
         </header>
 
         <div id="search-results-banner" class="search-results-banner hidden">

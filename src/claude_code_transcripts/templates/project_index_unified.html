@@ -17,6 +17,11 @@
     --text-color: #e2e8f0;
     --text-muted: #94a3b8;
     --border-color: #334155;
+    --chart-input: #3b82f6;
+    --chart-output: #8b5cf6;
+    --chart-cache-read: #06b6d4;
+    --chart-cache-write: #f59e0b;
+    --chart-cost: #10b981;
 }
 
 * { box-sizing: border-box; }
@@ -75,6 +80,102 @@ header h1 {
     font-size: 1rem;
 }
 
+.project-tokens {
+    margin-top: 8px;
+    font-size: 0.9rem;
+}
+
+/* Dashboard */
+.dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.dashboard-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.dashboard-card h3 {
+    margin: 0 0 16px 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.donut-chart-container {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.donut-chart svg {
+    width: 120px;
+    height: 120px;
+}
+
+.chart-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.85rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.legend-label { color: var(--text-muted); }
+.legend-value { color: var(--text-color); font-weight: 600; margin-left: auto; padding-left: 12px; }
+
+.cost-display {
+    text-align: center;
+    padding: 16px 0;
+}
+
+.cost-amount {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--chart-cost);
+    line-height: 1;
+}
+
+.cost-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+}
+
+.cost-breakdown {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.8rem;
+}
+
+.cost-breakdown-item { text-align: center; }
+.cost-breakdown-value { font-weight: 600; color: var(--text-color); }
+.cost-breakdown-label { color: var(--text-muted); }
+
+/* Search */
 .search-box {
     margin-bottom: 24px;
 }
@@ -98,6 +199,7 @@ header h1 {
     border-color: var(--sidebar-active);
 }
 
+/* Session cards */
 .sessions-list {
     display: flex;
     flex-direction: column;
@@ -154,17 +256,44 @@ header h1 {
     -webkit-box-orient: vertical;
 }
 
-.session-tokens {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-top: 8px;
-    padding-top: 8px;
+/* Mini chart widget */
+.mini-chart {
+    margin-top: 12px;
+    padding-top: 12px;
     border-top: 1px solid var(--border-color);
 }
 
-.project-tokens {
-    margin-top: 8px;
-    font-size: 0.9rem;
+.mini-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.mini-bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    background: var(--border-color);
+}
+
+.mini-bar-segment {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.mini-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.mini-cost {
+    font-weight: 600;
+    color: var(--chart-cost);
 }
 
 .back-link {
@@ -216,26 +345,14 @@ footer a:hover {
 }
 
 @media (max-width: 600px) {
-    .container {
-        padding: 16px;
-    }
-
-    header h1 {
-        font-size: 1.5rem;
-    }
-
-    .session-card a {
-        padding: 12px 16px;
-    }
-
-    .session-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .session-size {
-        margin-top: 4px;
-    }
+    .container { padding: 16px; }
+    header h1 { font-size: 1.5rem; }
+    .dashboard { grid-template-columns: 1fr; }
+    .session-card a { padding: 12px 16px; }
+    .session-header { flex-direction: column; align-items: flex-start; }
+    .session-size { margin-top: 4px; }
+    .donut-chart-container { flex-direction: column; align-items: flex-start; }
+    .cost-amount { font-size: 2rem; }
 }
     </style>
 </head>
@@ -255,6 +372,36 @@ footer a:hover {
             {% endif %}
         </header>
 
+        {% if project_totals %}
+        <div class="dashboard">
+            <div class="dashboard-card">
+                <h3>Token Usage</h3>
+                <div class="donut-chart-container">
+                    <div class="donut-chart" id="project-donut"
+                         data-input="{{ project_totals.input_tokens }}"
+                         data-output="{{ project_totals.output_tokens }}"
+                         data-cache-read="{{ project_totals.cache_read_tokens }}"
+                         data-cache-write="{{ project_totals.cache_creation_tokens }}">
+                    </div>
+                    <div class="chart-legend" id="project-legend"></div>
+                </div>
+            </div>
+            <div class="dashboard-card">
+                <h3>Estimated API Cost</h3>
+                <div class="cost-display">
+                    <div class="cost-amount">${{ "%.2f"|format(project_totals.cost) }}</div>
+                    <div class="cost-label">total estimated cost</div>
+                    <div class="cost-breakdown">
+                        <div class="cost-breakdown-item">
+                            <div class="cost-breakdown-value">{{ session_count }}</div>
+                            <div class="cost-breakdown-label">sessions</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="search-box">
             <input type="text" id="session-search" placeholder="Search sessions..." aria-label="Search sessions">
         </div>
@@ -268,8 +415,15 @@ footer a:hover {
                         <span class="session-size">{{ "%.0f"|format(session.size_kb) }} KB</span>
                     </div>
                     <div class="session-summary">{{ session.summary[:150] }}{% if session.summary|length > 150 %}...{% endif %}</div>
-                    {% if session.token_stats %}
-                    <div class="session-tokens">{{ session.token_stats }}</div>
+                    {% if session.input_tokens is defined %}
+                    <div class="mini-chart"
+                         data-input="{{ session.input_tokens }}"
+                         data-output="{{ session.output_tokens }}"
+                         data-cache-read="{{ session.cache_read_tokens }}"
+                         data-cache-write="{{ session.cache_creation_tokens }}"
+                         data-cost="{{ session.cost }}"
+                         data-total="{{ session.total_tokens }}">
+                    </div>
                     {% endif %}
                 </a>
             </div>
@@ -289,6 +443,98 @@ footer a:hover {
     </div>
 
     <script>
+// --- Chart utilities ---
+function formatNum(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return n.toLocaleString();
+    return String(n);
+}
+
+function createDonutChart(container, data) {
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) return;
+
+    const size = 120, cx = 60, cy = 60, r = 48, stroke = 16;
+    const circumference = 2 * Math.PI * r;
+
+    let svg = `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#334155" stroke-width="${stroke}"/>`;
+
+    let offset = 0;
+    data.forEach(d => {
+        if (d.value === 0) return;
+        const pct = d.value / total;
+        const dashLen = pct * circumference;
+        svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.color}" stroke-width="${stroke}" stroke-dasharray="${dashLen} ${circumference - dashLen}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})" stroke-linecap="round"/>`;
+        offset += dashLen;
+    });
+
+    svg += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">${formatNum(total)}</text>`;
+    svg += `<text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="#94a3b8" font-size="9">tokens</text>`;
+    svg += '</svg>';
+    container.innerHTML = svg;
+}
+
+function createLegend(container, data) {
+    const total = data.reduce((s, d) => s + d.value, 0);
+    container.innerHTML = data.filter(d => d.value > 0).map(d => {
+        const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : 0;
+        return `<div class="legend-item"><span class="legend-dot" style="background:${d.color}"></span><span class="legend-label">${d.label}</span><span class="legend-value">${formatNum(d.value)} (${pct}%)</span></div>`;
+    }).join('');
+}
+
+function createMiniBar(container) {
+    const input = parseInt(container.dataset.input) || 0;
+    const output = parseInt(container.dataset.output) || 0;
+    const cacheRead = parseInt(container.dataset.cacheRead) || 0;
+    const cacheWrite = parseInt(container.dataset.cacheWrite) || 0;
+    const cost = parseFloat(container.dataset.cost) || 0;
+
+    const grand = input + output + cacheRead + cacheWrite;
+    if (grand === 0) return;
+
+    const segments = [
+        { value: input, color: 'var(--chart-input)', label: 'in' },
+        { value: output, color: 'var(--chart-output)', label: 'out' },
+        { value: cacheRead, color: 'var(--chart-cache-read)', label: 'cached' },
+        { value: cacheWrite, color: 'var(--chart-cache-write)', label: 'cache-wr' },
+    ].filter(s => s.value > 0);
+
+    const barHtml = segments.map(s =>
+        `<div class="mini-bar-segment" style="width:${(s.value/grand*100).toFixed(1)}%;background:${s.color}" title="${s.label}: ${formatNum(s.value)}"></div>`
+    ).join('');
+
+    const statsHtml = segments.map(s =>
+        `<span><span style="color:${s.color}">${formatNum(s.value)}</span> ${s.label}</span>`
+    ).join(' &middot; ');
+
+    container.innerHTML = `
+        <div class="mini-bar-container">
+            <div class="mini-bar">${barHtml}</div>
+            <span class="mini-cost">$${cost.toFixed(2)}</span>
+        </div>
+        <div class="mini-stats">${statsHtml}</div>
+    `;
+}
+
+// --- Render charts ---
+document.addEventListener('DOMContentLoaded', function() {
+    const donut = document.getElementById('project-donut');
+    if (donut) {
+        const data = [
+            { label: 'Input', value: parseInt(donut.dataset.input) || 0, color: 'var(--chart-input)' },
+            { label: 'Output', value: parseInt(donut.dataset.output) || 0, color: 'var(--chart-output)' },
+            { label: 'Cache Read', value: parseInt(donut.dataset.cacheRead) || 0, color: 'var(--chart-cache-read)' },
+            { label: 'Cache Write', value: parseInt(donut.dataset.cacheWrite) || 0, color: 'var(--chart-cache-write)' },
+        ];
+        createDonutChart(donut, data);
+        const legend = document.getElementById('project-legend');
+        if (legend) createLegend(legend, data);
+    }
+
+    document.querySelectorAll('.mini-chart').forEach(createMiniBar);
+});
+
 // Search functionality
 const searchInput = document.getElementById('session-search');
 const sessionCards = document.querySelectorAll('.session-card');
