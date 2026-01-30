@@ -18,7 +18,7 @@
     --text-muted: #94a3b8;
     --border-color: #334155;
     --chart-input: #3b82f6;
-    --chart-output: #8b5cf6;
+    --chart-output: #f97316;
     --chart-cache-read: #06b6d4;
     --chart-cache-write: #f59e0b;
     --chart-cost: #10b981;
@@ -163,6 +163,56 @@ header h1 {
 .cost-breakdown-label {
     color: var(--text-muted);
 }
+
+/* Timeseries chart */
+.timeseries-section {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 32px;
+}
+
+.timeseries-section h3 {
+    margin: 0 0 16px 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.timeseries-chart {
+    position: relative;
+    width: 100%;
+    height: 200px;
+}
+
+.timeseries-chart svg {
+    width: 100%;
+    height: 100%;
+}
+
+.ts-legend {
+    display: flex;
+    gap: 24px;
+    margin-top: 12px;
+    font-size: 0.8rem;
+}
+
+.ts-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ts-legend-line {
+    width: 16px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+.ts-legend-label { color: var(--text-muted); }
 
 /* Search */
 .search-box {
@@ -394,6 +444,21 @@ footer a:hover {
                 </div>
             </div>
         </div>
+
+        <div class="timeseries-section" id="timeseries-container">
+            <h3>Usage Over Time</h3>
+            <div class="timeseries-chart" id="timeseries-chart"></div>
+            <div class="ts-legend">
+                <div class="ts-legend-item">
+                    <div class="ts-legend-line" style="background: var(--chart-input)"></div>
+                    <span class="ts-legend-label">Cumulative I/O Tokens</span>
+                </div>
+                <div class="ts-legend-item">
+                    <div class="ts-legend-line" style="background: var(--chart-cost)"></div>
+                    <span class="ts-legend-label">Cumulative Est. Cost</span>
+                </div>
+            </div>
+        </div>
         {% endif %}
 
         <div class="search-box">
@@ -447,7 +512,6 @@ function createDonutChart(container, data, centerLabel) {
     const circumference = 2 * Math.PI * r;
 
     let svg = `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">`;
-    // Background ring
     svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#334155" stroke-width="${stroke}"/>`;
 
     let offset = 0;
@@ -459,7 +523,6 @@ function createDonutChart(container, data, centerLabel) {
         offset += dashLen;
     });
 
-    // Center text
     svg += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">${formatNum(total)}</text>`;
     svg += `<text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="#94a3b8" font-size="9">${centerLabel || 'tokens'}</text>`;
     svg += '</svg>';
@@ -487,7 +550,6 @@ function createMiniBar(container) {
 
     let html = '';
 
-    // IO bar
     if (ioTotal > 0) {
         const ioSegments = [
             { value: input, color: 'var(--chart-input)', label: 'in' },
@@ -498,14 +560,9 @@ function createMiniBar(container) {
             `<div class="mini-bar-segment" style="width:${(s.value/ioTotal*100).toFixed(1)}%;background:${s.color}" title="${s.label}: ${formatNum(s.value)}"></div>`
         ).join('');
 
-        const ioStats = ioSegments.map(s =>
-            `<span style="color:${s.color}">${formatNum(s.value)}</span> ${s.label}`
-        ).join(' &middot; ');
-
         html += `<div class="mini-chart-row"><span class="mini-bar-label">i/o</span><div class="mini-bar">${ioBar}</div></div>`;
     }
 
-    // Cache bar
     if (cacheTotal > 0) {
         const cacheSegments = [
             { value: cacheRead, color: 'var(--chart-cache-read)', label: 'cached' },
@@ -519,7 +576,6 @@ function createMiniBar(container) {
         html += `<div class="mini-chart-row"><span class="mini-bar-label">cache</span><div class="mini-bar">${cacheBar}</div></div>`;
     }
 
-    // Stats line
     const allSegments = [
         { value: input, color: 'var(--chart-input)', label: 'in' },
         { value: output, color: 'var(--chart-output)', label: 'out' },
@@ -536,9 +592,87 @@ function createMiniBar(container) {
     container.innerHTML = html;
 }
 
+// --- Timeseries chart ---
+function createTimeseries(container, data) {
+    if (!data || data.length === 0) {
+        container.parentElement.style.display = 'none';
+        return;
+    }
+
+    const W = 960, H = 200;
+    const pad = { top: 20, right: 70, bottom: 40, left: 70 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+
+    const maxIO = Math.max(...data.map(d => d.cum_io));
+    const maxCost = Math.max(...data.map(d => d.cum_cost));
+
+    function x(i) { return pad.left + (data.length === 1 ? plotW / 2 : (i / (data.length - 1)) * plotW); }
+    function yIO(v) { return pad.top + plotH - (maxIO > 0 ? (v / maxIO) * plotH : 0); }
+    function yCost(v) { return pad.top + plotH - (maxCost > 0 ? (v / maxCost) * plotH : 0); }
+
+    let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">`;
+
+    // Grid lines
+    for (let i = 0; i <= 4; i++) {
+        const gy = pad.top + (plotH / 4) * i;
+        svg += `<line x1="${pad.left}" y1="${gy}" x2="${W - pad.right}" y2="${gy}" stroke="#334155" stroke-width="1"/>`;
+    }
+
+    // IO area fill
+    let ioPath = `M${x(0)},${yIO(data[0].cum_io)}`;
+    data.forEach((d, i) => { if (i > 0) ioPath += `L${x(i)},${yIO(d.cum_io)}`; });
+    const ioFill = ioPath + `L${x(data.length-1)},${pad.top + plotH}L${x(0)},${pad.top + plotH}Z`;
+    svg += `<path d="${ioFill}" fill="var(--chart-input)" opacity="0.15"/>`;
+    svg += `<path d="${ioPath}" fill="none" stroke="var(--chart-input)" stroke-width="2.5" stroke-linejoin="round"/>`;
+
+    // Cost area fill
+    let costPath = `M${x(0)},${yCost(data[0].cum_cost)}`;
+    data.forEach((d, i) => { if (i > 0) costPath += `L${x(i)},${yCost(d.cum_cost)}`; });
+    const costFill = costPath + `L${x(data.length-1)},${pad.top + plotH}L${x(0)},${pad.top + plotH}Z`;
+    svg += `<path d="${costFill}" fill="var(--chart-cost)" opacity="0.15"/>`;
+    svg += `<path d="${costPath}" fill="none" stroke="var(--chart-cost)" stroke-width="2.5" stroke-linejoin="round"/>`;
+
+    // Data points
+    data.forEach((d, i) => {
+        svg += `<circle cx="${x(i)}" cy="${yIO(d.cum_io)}" r="3" fill="var(--chart-input)"/>`;
+        svg += `<circle cx="${x(i)}" cy="${yCost(d.cum_cost)}" r="3" fill="var(--chart-cost)"/>`;
+    });
+
+    // Y-axis labels (left = tokens)
+    for (let i = 0; i <= 4; i++) {
+        const val = maxIO * (4 - i) / 4;
+        const gy = pad.top + (plotH / 4) * i;
+        svg += `<text x="${pad.left - 8}" y="${gy + 4}" text-anchor="end" fill="#94a3b8" font-size="10">${formatNum(Math.round(val))}</text>`;
+    }
+
+    // Y-axis labels (right = cost)
+    for (let i = 0; i <= 4; i++) {
+        const val = maxCost * (4 - i) / 4;
+        const gy = pad.top + (plotH / 4) * i;
+        svg += `<text x="${W - pad.right + 8}" y="${gy + 4}" text-anchor="start" fill="#94a3b8" font-size="10">$${val < 1 ? val.toFixed(2) : Math.round(val).toLocaleString()}</text>`;
+    }
+
+    // X-axis labels (show up to ~8 date labels)
+    const step = Math.max(1, Math.floor(data.length / 8));
+    data.forEach((d, i) => {
+        if (i % step === 0 || i === data.length - 1) {
+            const parts = d.date.split('-');
+            const label = parts[1] + '/' + parts[2];
+            svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" fill="#94a3b8" font-size="10">${label}</text>`;
+        }
+    });
+
+    // Axis labels
+    svg += `<text x="${pad.left - 8}" y="${pad.top - 8}" text-anchor="end" fill="var(--chart-input)" font-size="10" font-weight="600">tokens</text>`;
+    svg += `<text x="${W - pad.right + 8}" y="${pad.top - 8}" text-anchor="start" fill="var(--chart-cost)" font-size="10" font-weight="600">cost</text>`;
+
+    svg += '</svg>';
+    container.innerHTML = svg;
+}
+
 // --- Render charts ---
 document.addEventListener('DOMContentLoaded', function() {
-    // Input/Output donut
     const donutIO = document.getElementById('archive-donut-io');
     if (donutIO) {
         const ioData = [
@@ -550,7 +684,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (legendIO) createLegend(legendIO, ioData);
     }
 
-    // Cache donut
     const donutCache = document.getElementById('archive-donut-cache');
     if (donutCache) {
         const cacheData = [
@@ -563,6 +696,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.querySelectorAll('.mini-chart').forEach(createMiniBar);
+
+    // Timeseries
+    const tsContainer = document.getElementById('timeseries-chart');
+    if (tsContainer) {
+        const tsData = {{ timeseries_json|safe }};
+        createTimeseries(tsContainer, tsData);
+    }
 });
 
 // Search functionality

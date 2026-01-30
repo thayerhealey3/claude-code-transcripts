@@ -1148,7 +1148,7 @@
           var html = '';
           // IO bar
           if (ioTotal > 0) {
-              var ioSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#8b5cf6', l: 'out'}].filter(function(s) { return s.v > 0; });
+              var ioSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#f97316', l: 'out'}].filter(function(s) { return s.v > 0; });
               var ioBar = ioSegs.map(function(s) {
                   return '<div class="mini-bar-segment" style="width:' + (s.v/ioTotal*100).toFixed(1) + '%;background:' + s.c + '" title="' + s.l + ': ' + fmtN(s.v) + '"></div>';
               }).join('');
@@ -1163,7 +1163,7 @@
               html += '<div class="mini-chart-row"><span class="mini-bar-label">cache</span><div class="mini-bar">' + cacheBar + '</div></div>';
           }
           // Stats line
-          var allSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#8b5cf6', l: 'out'}, {v: cr, c: '#06b6d4', l: 'cached'}, {v: cw, c: '#f59e0b', l: 'cache-wr'}].filter(function(s) { return s.v > 0; });
+          var allSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#f97316', l: 'out'}, {v: cr, c: '#06b6d4', l: 'cached'}, {v: cw, c: '#f59e0b', l: 'cache-wr'}].filter(function(s) { return s.v > 0; });
           var stats = allSegs.map(function(s) {
               return '<span><span style="color:' + s.c + '">' + fmtN(s.v) + '</span> ' + s.l + '</span>';
           }).join(' &middot; ');
