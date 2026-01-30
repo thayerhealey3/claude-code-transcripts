@@ -68,7 +68,7 @@ header h1 {
 /* Dashboard */
 .dashboard {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 16px;
     margin-bottom: 32px;
 }
@@ -263,11 +263,23 @@ header h1 {
     border-top: 1px solid var(--border-color);
 }
 
-.mini-bar-container {
+.mini-chart-row {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
+}
+
+.mini-chart-row:last-child {
+    margin-bottom: 0;
+}
+
+.mini-bar-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    width: 38px;
+    flex-shrink: 0;
+    text-align: right;
 }
 
 .mini-bar {
@@ -289,6 +301,7 @@ header h1 {
     justify-content: space-between;
     font-size: 0.75rem;
     color: var(--text-muted);
+    margin-top: 6px;
 }
 
 .mini-cost {
@@ -319,7 +332,7 @@ footer a:hover {
     display: none;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .container { padding: 16px; }
     header h1 { font-size: 1.5rem; }
     .dashboard { grid-template-columns: 1fr; }
@@ -344,15 +357,23 @@ footer a:hover {
         {% if archive_totals %}
         <div class="dashboard">
             <div class="dashboard-card">
-                <h3>Token Usage</h3>
+                <h3>Input / Output</h3>
                 <div class="donut-chart-container">
-                    <div class="donut-chart" id="archive-donut"
+                    <div class="donut-chart" id="archive-donut-io"
                          data-input="{{ archive_totals.input_tokens }}"
-                         data-output="{{ archive_totals.output_tokens }}"
+                         data-output="{{ archive_totals.output_tokens }}">
+                    </div>
+                    <div class="chart-legend" id="archive-legend-io"></div>
+                </div>
+            </div>
+            <div class="dashboard-card">
+                <h3>Cache Tokens</h3>
+                <div class="donut-chart-container">
+                    <div class="donut-chart" id="archive-donut-cache"
                          data-cache-read="{{ archive_totals.cache_read_tokens }}"
                          data-cache-write="{{ archive_totals.cache_creation_tokens }}">
                     </div>
-                    <div class="chart-legend" id="archive-legend"></div>
+                    <div class="chart-legend" id="archive-legend-cache"></div>
                 </div>
             </div>
             <div class="dashboard-card">
@@ -418,7 +439,7 @@ function formatNum(n) {
     return String(n);
 }
 
-function createDonutChart(container, data) {
+function createDonutChart(container, data, centerLabel) {
     const total = data.reduce((s, d) => s + d.value, 0);
     if (total === 0) return;
 
@@ -440,7 +461,7 @@ function createDonutChart(container, data) {
 
     // Center text
     svg += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">${formatNum(total)}</text>`;
-    svg += `<text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="#94a3b8" font-size="9">tokens</text>`;
+    svg += `<text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="#94a3b8" font-size="9">${centerLabel || 'tokens'}</text>`;
     svg += '</svg>';
     container.innerHTML = svg;
 }
@@ -459,48 +480,86 @@ function createMiniBar(container) {
     const cacheRead = parseInt(container.dataset.cacheRead) || 0;
     const cacheWrite = parseInt(container.dataset.cacheWrite) || 0;
     const cost = parseFloat(container.dataset.cost) || 0;
-    const total = parseInt(container.dataset.total) || 0;
 
-    const grand = input + output + cacheRead + cacheWrite;
-    if (grand === 0) return;
+    const ioTotal = input + output;
+    const cacheTotal = cacheRead + cacheWrite;
+    if (ioTotal === 0 && cacheTotal === 0) return;
 
-    const segments = [
+    let html = '';
+
+    // IO bar
+    if (ioTotal > 0) {
+        const ioSegments = [
+            { value: input, color: 'var(--chart-input)', label: 'in' },
+            { value: output, color: 'var(--chart-output)', label: 'out' },
+        ].filter(s => s.value > 0);
+
+        const ioBar = ioSegments.map(s =>
+            `<div class="mini-bar-segment" style="width:${(s.value/ioTotal*100).toFixed(1)}%;background:${s.color}" title="${s.label}: ${formatNum(s.value)}"></div>`
+        ).join('');
+
+        const ioStats = ioSegments.map(s =>
+            `<span style="color:${s.color}">${formatNum(s.value)}</span> ${s.label}`
+        ).join(' &middot; ');
+
+        html += `<div class="mini-chart-row"><span class="mini-bar-label">i/o</span><div class="mini-bar">${ioBar}</div></div>`;
+    }
+
+    // Cache bar
+    if (cacheTotal > 0) {
+        const cacheSegments = [
+            { value: cacheRead, color: 'var(--chart-cache-read)', label: 'cached' },
+            { value: cacheWrite, color: 'var(--chart-cache-write)', label: 'cache-wr' },
+        ].filter(s => s.value > 0);
+
+        const cacheBar = cacheSegments.map(s =>
+            `<div class="mini-bar-segment" style="width:${(s.value/cacheTotal*100).toFixed(1)}%;background:${s.color}" title="${s.label}: ${formatNum(s.value)}"></div>`
+        ).join('');
+
+        html += `<div class="mini-chart-row"><span class="mini-bar-label">cache</span><div class="mini-bar">${cacheBar}</div></div>`;
+    }
+
+    // Stats line
+    const allSegments = [
         { value: input, color: 'var(--chart-input)', label: 'in' },
         { value: output, color: 'var(--chart-output)', label: 'out' },
         { value: cacheRead, color: 'var(--chart-cache-read)', label: 'cached' },
         { value: cacheWrite, color: 'var(--chart-cache-write)', label: 'cache-wr' },
     ].filter(s => s.value > 0);
 
-    const barHtml = segments.map(s =>
-        `<div class="mini-bar-segment" style="width:${(s.value/grand*100).toFixed(1)}%;background:${s.color}" title="${s.label}: ${formatNum(s.value)}"></div>`
-    ).join('');
-
-    const statsHtml = segments.map(s =>
+    const statsHtml = allSegments.map(s =>
         `<span><span style="color:${s.color}">${formatNum(s.value)}</span> ${s.label}</span>`
     ).join(' &middot; ');
 
-    container.innerHTML = `
-        <div class="mini-bar-container">
-            <div class="mini-bar">${barHtml}</div>
-            <span class="mini-cost">$${cost.toFixed(2)}</span>
-        </div>
-        <div class="mini-stats">${statsHtml}</div>
-    `;
+    html += `<div class="mini-stats"><span>${statsHtml}</span><span class="mini-cost">$${cost.toFixed(2)}</span></div>`;
+
+    container.innerHTML = html;
 }
 
 // --- Render charts ---
 document.addEventListener('DOMContentLoaded', function() {
-    const donut = document.getElementById('archive-donut');
-    if (donut) {
-        const data = [
-            { label: 'Input', value: parseInt(donut.dataset.input) || 0, color: 'var(--chart-input)' },
-            { label: 'Output', value: parseInt(donut.dataset.output) || 0, color: 'var(--chart-output)' },
-            { label: 'Cache Read', value: parseInt(donut.dataset.cacheRead) || 0, color: 'var(--chart-cache-read)' },
-            { label: 'Cache Write', value: parseInt(donut.dataset.cacheWrite) || 0, color: 'var(--chart-cache-write)' },
+    // Input/Output donut
+    const donutIO = document.getElementById('archive-donut-io');
+    if (donutIO) {
+        const ioData = [
+            { label: 'Input', value: parseInt(donutIO.dataset.input) || 0, color: 'var(--chart-input)' },
+            { label: 'Output', value: parseInt(donutIO.dataset.output) || 0, color: 'var(--chart-output)' },
         ];
-        createDonutChart(donut, data);
-        const legend = document.getElementById('archive-legend');
-        if (legend) createLegend(legend, data);
+        createDonutChart(donutIO, ioData, 'i/o tokens');
+        const legendIO = document.getElementById('archive-legend-io');
+        if (legendIO) createLegend(legendIO, ioData);
+    }
+
+    // Cache donut
+    const donutCache = document.getElementById('archive-donut-cache');
+    if (donutCache) {
+        const cacheData = [
+            { label: 'Cache Read', value: parseInt(donutCache.dataset.cacheRead) || 0, color: 'var(--chart-cache-read)' },
+            { label: 'Cache Write', value: parseInt(donutCache.dataset.cacheWrite) || 0, color: 'var(--chart-cache-write)' },
+        ];
+        createDonutChart(donutCache, cacheData, 'cache');
+        const legendCache = document.getElementById('archive-legend-cache');
+        if (legendCache) createLegend(legendCache, cacheData);
     }
 
     document.querySelectorAll('.mini-chart').forEach(createMiniBar);
