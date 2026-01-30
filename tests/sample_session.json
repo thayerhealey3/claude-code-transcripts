@@ -527,11 +527,49 @@
         "content": [
           {
             "type": "text",
-            "text": "Added multiply function!"
+            "text": "Added multiply function! Let me run the tests using a subagent."
+          },
+          {
+            "type": "tool_use",
+            "id": "toolu_task_001",
+            "name": "Task",
+            "input": {
+              "description": "Run test suite",
+              "prompt": "Run all tests with pytest and report results",
+              "subagent_type": "Bash"
+            }
           }
         ]
       },
       "usage": {"input_tokens": 580, "output_tokens": 20}
+    },
+    {
+      "type": "user",
+      "timestamp": "2025-12-24T10:05:20.000Z",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_task_001",
+            "content": "All 5 tests passed successfully.\n\nagentId: abc123def"
+          }
+        ]
+      }
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2025-12-24T10:05:25.000Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "All tests pass! The multiply function is working correctly."
+          }
+        ]
+      },
+      "usage": {"input_tokens": 620, "output_tokens": 25}
     }
   ]
 }

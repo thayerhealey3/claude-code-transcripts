@@ -645,6 +645,59 @@
   .todo-pending .todo-icon { color: var(--text-muted); background: rgba(255,255,255,0.1); }
   .todo-pending .todo-content { color: var(--text-muted); }
   
+  /* Task tool (subagent) */
+  .task-tool {
+      background: linear-gradient(135deg, #1e1b4b 0%, #172554 100%);
+      border: 1px solid #818cf8;
+  }
+  
+  .task-tool .tool-header { color: #a5b4fc; }
+  
+  .subagent-type {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 10px;
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      font-size: 0.8em;
+      margin-left: 6px;
+      font-weight: 500;
+  }
+  
+  .task-prompt {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+  }
+  
+  .subagent-link {
+      margin: 8px 0;
+  }
+  
+  .subagent-link a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 6px;
+      color: #818cf8;
+      text-decoration: none;
+      font-size: 0.85em;
+      font-weight: 500;
+      transition: background 0.15s, border-color 0.15s;
+  }
+  
+  .subagent-link a:hover {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: rgba(99, 102, 241, 0.5);
+  }
+  
+  .subagent-link a::before {
+      content: '→';
+      font-weight: bold;
+  }
+  
   /* Code blocks */
   pre {
       background: var(--code-bg);

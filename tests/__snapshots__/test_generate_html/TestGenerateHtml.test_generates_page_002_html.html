@@ -76,6 +76,14 @@ time { color: var(--text-muted); font-size: 0.8rem; }
 .todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
 .todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
 .todo-pending .todo-content { color: #616161; }
+.task-tool { background: linear-gradient(135deg, #e8eaf6 0%, #e3f2fd 100%); border: 1px solid #5c6bc0; }
+.task-tool .tool-header { color: #3949ab; }
+.subagent-type { display: inline-block; padding: 1px 8px; border-radius: 10px; background: rgba(63, 81, 181, 0.15); color: #3949ab; font-size: 0.8em; margin-left: 6px; font-weight: 500; }
+.task-prompt { color: var(--text-muted); font-size: 0.85rem; }
+.subagent-link { margin: 8px 0; }
+.subagent-link a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(63, 81, 181, 0.1); border: 1px solid rgba(63, 81, 181, 0.3); border-radius: 6px; color: #3949ab; text-decoration: none; font-size: 0.85em; font-weight: 500; }
+.subagent-link a:hover { background: rgba(63, 81, 181, 0.2); border-color: rgba(63, 81, 181, 0.5); }
+.subagent-link a::before { content: '→'; font-weight: bold; }
 pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
 pre.json { color: #e0e0e0; }
 code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
@@ -177,8 +185,14 @@ def multiply(a: int, b: int) -&gt; int:
 </div><button class="expand-btn">Show more</button></div>
 </div></div></div>
 <div class="message tool-reply" id="msg-2025-12-24T10-05-10-000Z" data-tools="Edit"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2025-12-24T10-05-10-000Z" class="timestamp-link"><time datetime="2025-12-24T10:05:10.000Z" data-timestamp="2025-12-24T10:05:10.000Z">2025-12-24T10:05:10.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>File edited successfully</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
-<div class="message assistant" id="msg-2025-12-24T10-05-15-000Z"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 580 · out: 20</span><a href="#msg-2025-12-24T10-05-15-000Z" class="timestamp-link"><time datetime="2025-12-24T10:05:15.000Z" data-timestamp="2025-12-24T10:05:15.000Z">2025-12-24T10:05:15.000Z</time></a></div><div class="message-content">
-<div class="assistant-text"><p>Added multiply function!</p></div></div></div>
+<div class="message assistant" id="msg-2025-12-24T10-05-15-000Z" data-tools="Task"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 580 · out: 20</span><a href="#msg-2025-12-24T10-05-15-000Z" class="timestamp-link"><time datetime="2025-12-24T10:05:15.000Z" data-timestamp="2025-12-24T10:05:15.000Z">2025-12-24T10:05:15.000Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Added multiply function! Let me run the tests using a subagent.</p></div>
+<div class="tool-use task-tool" data-tool-id="toolu_task_001"><div class="tool-header"><span class="tool-icon">🔀</span> Task <span class="subagent-type">Bash</span></div><div class="tool-description">Run test suite</div><div class="truncatable"><div class="truncatable-content"><pre class="task-prompt">Run all tests with pytest and report results</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2025-12-24T10-05-20-000Z" data-tools="Task"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2025-12-24T10-05-20-000Z" class="timestamp-link"><time datetime="2025-12-24T10:05:20.000Z" data-timestamp="2025-12-24T10:05:20.000Z">2025-12-24T10:05:20.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><div class="subagent-link"><a href="../agent-abc123def/unified.html">View subagent transcript</a></div><pre>All 5 tests passed successfully.
+
+agentId: abc123def</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2025-12-24T10-05-25-000Z"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 620 · out: 25</span><a href="#msg-2025-12-24T10-05-25-000Z" class="timestamp-link"><time datetime="2025-12-24T10:05:25.000Z" data-timestamp="2025-12-24T10:05:25.000Z">2025-12-24T10:05:25.000Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>All tests pass! The multiply function is working correctly.</p></div></div></div>
         
 
 <div class="pagination">

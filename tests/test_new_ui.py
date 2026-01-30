@@ -12,6 +12,7 @@ from claude_code_transcripts import (
     cli,
     generate_html,
     generate_unified_html,
+    extract_subagent_ids,
 )
 
 
@@ -1133,6 +1134,328 @@ class TestTokenUsageInUnifiedView:
         assert "Claude Code Transcript" in html
 
 
+class TestSubagentLinking:
+    """Tests for subagent session linking when Task tool is used."""
+
+    def _make_task_session(self):
+        """Create a session with a Task tool call that spawns a subagent."""
+        return {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Run the tests", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "I'll run the tests using a subagent.",
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_task_001",
+                                "name": "Task",
+                                "input": {
+                                    "description": "Run test suite",
+                                    "prompt": "Run all tests with pytest",
+                                    "subagent_type": "Bash",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 200, "output_tokens": 50},
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_task_001",
+                                "content": "All tests passed.\n\nagentId: abc123def",
+                            }
+                        ],
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:15.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "All tests pass!"}],
+                    },
+                    "usage": {"input_tokens": 300, "output_tokens": 20},
+                },
+            ]
+        }
+
+    def test_extract_subagent_ids_from_loglines(self):
+        """Test that subagent IDs can be extracted from Task tool results."""
+        session_data = self._make_task_session()
+        agent_map = extract_subagent_ids(session_data["loglines"])
+        assert "toolu_task_001" in agent_map
+        assert agent_map["toolu_task_001"] == "abc123def"
+
+    def test_extract_subagent_ids_no_task(self):
+        """Test that extract_subagent_ids returns empty dict when no Task tools."""
+        loglines = [
+            {
+                "type": "user",
+                "timestamp": "2025-01-01T10:00:00.000Z",
+                "message": {"content": "Hello", "role": "user"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2025-01-01T10:00:05.000Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "Hi"}],
+                },
+            },
+        ]
+        agent_map = extract_subagent_ids(loglines)
+        assert agent_map == {}
+
+    def test_extract_subagent_ids_multiple_tasks(self):
+        """Test extracting multiple subagent IDs from multiple Task calls."""
+        loglines = [
+            {
+                "type": "user",
+                "timestamp": "2025-01-01T10:00:00.000Z",
+                "message": {"content": "Do stuff", "role": "user"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2025-01-01T10:00:05.000Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_task_a",
+                            "name": "Task",
+                            "input": {
+                                "description": "Explore code",
+                                "prompt": "Search the codebase",
+                                "subagent_type": "Explore",
+                            },
+                        },
+                    ],
+                },
+            },
+            {
+                "type": "user",
+                "timestamp": "2025-01-01T10:00:10.000Z",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_task_a",
+                            "content": "Found files.\n\nagentId: agent111",
+                        }
+                    ],
+                },
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2025-01-01T10:00:15.000Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_task_b",
+                            "name": "Task",
+                            "input": {
+                                "description": "Run tests",
+                                "prompt": "Run pytest",
+                                "subagent_type": "Bash",
+                            },
+                        },
+                    ],
+                },
+            },
+            {
+                "type": "user",
+                "timestamp": "2025-01-01T10:00:20.000Z",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_task_b",
+                            "content": "Tests passed.\n\nagentId: agent222",
+                        }
+                    ],
+                },
+            },
+        ]
+        agent_map = extract_subagent_ids(loglines)
+        assert agent_map == {"toolu_task_a": "agent111", "toolu_task_b": "agent222"}
+
+    def test_task_tool_renders_with_description(self, output_dir):
+        """Test that Task tool_use renders showing description and subagent type."""
+        session_data = self._make_task_session()
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should show the task description
+        assert "Run test suite" in html
+        # Should show the subagent type
+        assert "Bash" in html
+        # Should have task-tool class
+        assert "task-tool" in html
+
+    def test_task_tool_has_subagent_type_badge(self, output_dir):
+        """Test that Task tool renders with a subagent type badge."""
+        session_data = self._make_task_session()
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        assert 'class="subagent-type"' in html
+
+    def test_task_result_has_subagent_link(self, output_dir):
+        """Test that Task tool result renders a link to the subagent session."""
+        session_data = self._make_task_session()
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have a link to the subagent session
+        assert "../agent-abc123def/unified.html" in html
+        assert 'class="subagent-link"' in html
+
+    def test_task_result_link_text(self, output_dir):
+        """Test that the subagent link has descriptive text."""
+        session_data = self._make_task_session()
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        assert "View subagent transcript" in html
+
+    def test_task_tool_has_data_tools_attribute(self, output_dir):
+        """Test that assistant message with Task tool has data-tools attribute."""
+        session_data = self._make_task_session()
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        assert 'data-tools="Task"' in html
+
+    def test_task_filter_appears_when_task_used(self, output_dir):
+        """Test that a Task filter toggle appears when Task tool is used."""
+        session_data = self._make_task_session()
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        assert 'data-filter="Task"' in html
+
+    def test_task_css_styles_exist(self, output_dir):
+        """Test that CSS for task-tool and subagent-link classes exist."""
+        session_data = self._make_task_session()
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        assert ".task-tool" in html
+        assert ".subagent-link" in html
+        assert ".subagent-type" in html
+
+    def test_no_subagent_link_when_no_agent_id(self, output_dir):
+        """Test that no subagent link is rendered when result has no agentId."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Do something", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_task_no_id",
+                                "name": "Task",
+                                "input": {
+                                    "description": "Quick task",
+                                    "prompt": "Do something simple",
+                                    "subagent_type": "general-purpose",
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_task_no_id",
+                                "content": "Task completed with no agent id reference.",
+                            }
+                        ],
+                    },
+                },
+            ]
+        }
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should NOT have subagent link element (CSS definition is fine)
+        assert 'class="subagent-link"' not in html
+        assert "View subagent transcript" not in html
+        # But should still have the task-tool rendering
+        assert "task-tool" in html
+
+    def test_sample_session_has_task_tool(self, output_dir):
+        """Test that the sample session fixture includes Task tool and renders correctly."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        assert "task-tool" in html
+        assert "Run test suite" in html
+        assert 'data-filter="Task"' in html
+        assert "../agent-abc123def/unified.html" in html
+
+
 class TestUnifiedHtmlSnapshot:
     """Snapshot tests for unified HTML output."""
 
@@ -1206,3 +1529,795 @@ class TestUnifiedHtmlSnapshot:
 
         html = (output_dir / "unified.html").read_text(encoding="utf-8")
         assert html == snapshot
+
+
+class TestComprehensiveNewUi:
+    """Comprehensive tests covering all new-ui features in a single session."""
+
+    @pytest.fixture
+    def comprehensive_session_data(self):
+        """Session data containing all tool/message types for comprehensive testing."""
+        return {
+            "loglines": [
+                # 1. User prompt with system info
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {
+                        "content": "<ide_opened_file>src/main.py</ide_opened_file>\n<system_reminder>Important context</system_reminder>\nBuild me a web server",
+                        "role": "user",
+                    },
+                },
+                # 2. Assistant with thinking + text + Write tool
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "thinking",
+                                "thinking": "The user wants a web server. I should create a simple Flask app.",
+                            },
+                            {
+                                "type": "text",
+                                "text": "I'll create a **Flask** web server for you.\n\n```python\nfrom flask import Flask\n```",
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_write_001",
+                                "name": "Write",
+                                "input": {
+                                    "file_path": "/project/server.py",
+                                    "content": "from flask import Flask\n\napp = Flask(__name__)\n\n@app.route('/')\ndef hello():\n    return 'Hello!'\n",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {
+                        "input_tokens": 1500,
+                        "output_tokens": 350,
+                        "cache_read_input_tokens": 800,
+                        "cache_creation_input_tokens": 200,
+                    },
+                },
+                # 3. Write tool result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_write_001",
+                                "content": "File written successfully",
+                            }
+                        ],
+                    },
+                },
+                # 4. Assistant with Edit tool
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:15.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_edit_001",
+                                "name": "Edit",
+                                "input": {
+                                    "file_path": "/project/server.py",
+                                    "old_string": "return 'Hello!'",
+                                    "new_string": "return 'Hello, World!'",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 500, "output_tokens": 100},
+                },
+                # 5. Edit tool result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:20.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_edit_001",
+                                "content": "File edited successfully",
+                            }
+                        ],
+                    },
+                },
+                # 6. Assistant with Bash tool
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:25.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_bash_001",
+                                "name": "Bash",
+                                "input": {
+                                    "command": "python -m pytest tests/ -v",
+                                    "description": "Run tests",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 600, "output_tokens": 80},
+                },
+                # 7. Bash tool result (error)
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:30.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_bash_001",
+                                "content": "Exit code 1\nModuleNotFoundError: No module named 'flask'",
+                                "is_error": True,
+                            }
+                        ],
+                    },
+                },
+                # 8. Assistant with Glob + Grep tools
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:35.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Let me check the project structure.",
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_glob_001",
+                                "name": "Glob",
+                                "input": {
+                                    "pattern": "**/*.py",
+                                    "path": "/project",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 700, "output_tokens": 50},
+                },
+                # 9. Glob tool result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:40.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_glob_001",
+                                "content": "/project/server.py\n/project/tests/test_server.py",
+                            }
+                        ],
+                    },
+                },
+                # 10. Assistant with Grep
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:45.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_grep_001",
+                                "name": "Grep",
+                                "input": {
+                                    "pattern": "import flask",
+                                    "path": "/project",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 800, "output_tokens": 40},
+                },
+                # 11. Grep result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:50.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_grep_001",
+                                "content": "/project/server.py:1:from flask import Flask",
+                            }
+                        ],
+                    },
+                },
+                # 12. Assistant with TodoWrite
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:55.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_todo_001",
+                                "name": "TodoWrite",
+                                "input": {
+                                    "todos": [
+                                        {
+                                            "content": "Create server",
+                                            "status": "completed",
+                                            "activeForm": "Creating server",
+                                        },
+                                        {
+                                            "content": "Fix dependencies",
+                                            "status": "in_progress",
+                                            "activeForm": "Fixing dependencies",
+                                        },
+                                        {
+                                            "content": "Run tests",
+                                            "status": "pending",
+                                            "activeForm": "Running tests",
+                                        },
+                                    ]
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 900, "output_tokens": 60},
+                },
+                # 13. Todo result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:01:00.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_todo_001",
+                                "content": "Todos updated",
+                            }
+                        ],
+                    },
+                },
+                # 14. Second user prompt
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:02:00.000Z",
+                    "message": {
+                        "content": "Now deploy it using a subagent",
+                        "role": "user",
+                    },
+                },
+                # 15. Assistant with Task tool (subagent)
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:02:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "I'll spawn a subagent to handle deployment.",
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_task_001",
+                                "name": "Task",
+                                "input": {
+                                    "description": "Deploy web server",
+                                    "prompt": "Deploy the Flask server to production",
+                                    "subagent_type": "Bash",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 1000, "output_tokens": 120},
+                },
+                # 16. Task result with agentId
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:02:30.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_task_001",
+                                "content": "Server deployed successfully to https://example.com\n\nagentId: deploy789xyz",
+                            }
+                        ],
+                    },
+                },
+                # 17. Final assistant response
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:02:35.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Your server is deployed and running!",
+                            }
+                        ],
+                    },
+                    "usage": {"input_tokens": 1100, "output_tokens": 30},
+                },
+            ]
+        }
+
+    def test_all_message_types_rendered(self, output_dir, comprehensive_session_data):
+        """Test that user, assistant, tool-reply, and all tool types are rendered."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # User messages
+        assert 'class="message user"' in html
+        # Assistant messages
+        assert 'class="message assistant"' in html
+        # Tool reply messages
+        assert 'class="message tool-reply"' in html
+
+    def test_all_tool_types_rendered(self, output_dir, comprehensive_session_data):
+        """Test that Write, Edit, Bash, Glob, Grep, TodoWrite, and Task tools render."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # Write tool
+        assert "write-tool" in html
+        assert "/project/server.py" in html
+        # Edit tool
+        assert "edit-tool" in html
+        assert "edit-old" in html
+        assert "edit-new" in html
+        # Bash tool
+        assert "bash-tool" in html
+        assert "pytest" in html
+        # Glob tool
+        assert "Glob" in html
+        # Grep tool
+        assert "Grep" in html
+        # TodoWrite tool
+        assert "todo-list" in html
+        assert "Create server" in html
+        assert "Fix dependencies" in html
+        # Task tool
+        assert "task-tool" in html
+        assert "Deploy web server" in html
+
+    def test_thinking_block_rendered(self, output_dir, comprehensive_session_data):
+        """Test that thinking blocks are rendered."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert 'class="thinking"' in html
+        assert "Thinking" in html
+
+    def test_error_tool_result_styled(self, output_dir, comprehensive_session_data):
+        """Test that error tool results have error styling."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "tool-error" in html
+
+    def test_system_info_separated(self, output_dir, comprehensive_session_data):
+        """Test that system info tags are separated from user content."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "system-info" in html
+        assert "Build me a web server" in html
+
+    def test_markdown_rendered(self, output_dir, comprehensive_session_data):
+        """Test that markdown in assistant text is rendered to HTML."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # Bold text rendered
+        assert "<strong>" in html or "<b>" in html
+        # Code blocks rendered
+        assert "<code" in html
+
+    def test_token_usage_in_header(self, output_dir, comprehensive_session_data):
+        """Test that total token usage is displayed in header."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # Should show total tokens in sidebar stats
+        assert "tokens" in html.lower()
+        # Should show token stats in header
+        assert "header-stats" in html
+
+    def test_per_message_token_info(self, output_dir, comprehensive_session_data):
+        """Test that individual assistant messages show input/output token counts."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # Should show per-message token info
+        assert "token-info" in html
+        assert "in:" in html
+        assert "out:" in html
+
+    def test_mini_chart_rendered(self, output_dir, comprehensive_session_data):
+        """Test that the token usage mini-chart is rendered in header."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # Should have mini chart div with data attributes
+        assert "header-mini-chart" in html
+        assert "data-input=" in html
+        assert "data-output=" in html
+        assert "data-cache-read=" in html
+        assert "data-cache-write=" in html
+
+    def test_cost_estimate_displayed(self, output_dir, comprehensive_session_data):
+        """Test that estimated API cost is shown."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "$" in html
+
+    def test_all_tool_filters_present(self, output_dir, comprehensive_session_data):
+        """Test that filter toggles exist for all tool types used."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # Core filters
+        assert 'data-filter="user"' in html
+        assert 'data-filter="assistant"' in html
+        # Tool-specific filters
+        assert 'data-filter="Write"' in html
+        assert 'data-filter="Edit"' in html
+        assert 'data-filter="Bash"' in html
+        assert 'data-filter="Glob"' in html
+        assert 'data-filter="Grep"' in html
+        assert 'data-filter="TodoWrite"' in html
+        assert 'data-filter="Task"' in html
+
+    def test_data_tools_attributes_on_messages(
+        self, output_dir, comprehensive_session_data
+    ):
+        """Test that messages have correct data-tools attributes."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert 'data-tools="Write"' in html
+        assert 'data-tools="Edit"' in html
+        assert 'data-tools="Bash"' in html
+        assert 'data-tools="Task"' in html
+
+    def test_search_infrastructure(self, output_dir, comprehensive_session_data):
+        """Test that search input, clear button, and JS are present."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # Search input
+        assert 'id="unified-search"' in html
+        # Clear button
+        assert 'class="search-clear"' in html
+        # Search results banner
+        assert "search-results-banner" in html
+        # Search JS
+        assert "debounce" in html.lower() or "setTimeout" in html
+        # Keyboard shortcut (Ctrl+K)
+        assert "Ctrl" in html or "ctrlKey" in html or "metaKey" in html
+
+    def test_sidebar_navigation(self, output_dir, comprehensive_session_data):
+        """Test that sidebar has correct nav items for user prompts."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # Sidebar exists
+        assert 'id="sidebar"' in html
+        # Nav list
+        assert 'id="nav-list"' in html
+        # Should have 2 prompts (Build me a web server, Now deploy it)
+        assert "#prompt-1" in html
+        assert "#prompt-2" in html
+        # Nav previews show user text, not system tags
+        assert "Build me a web server" in html
+        assert "Now deploy it" in html
+
+    def test_message_navigation_buttons(self, output_dir, comprehensive_session_data):
+        """Test that prev/next message navigation buttons are present."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert 'class="message-wrapper"' in html
+        assert 'class="msg-nav-btn prev-btn"' in html
+        assert 'class="msg-nav-btn next-btn"' in html
+        assert 'aria-label="Previous message"' in html
+        assert 'aria-label="Next message"' in html
+
+    def test_keyboard_navigation_js(self, output_dir, comprehensive_session_data):
+        """Test that j/k keyboard navigation is included."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "e.key === 'j'" in html or 'e.key === "j"' in html
+        assert "e.key === 'k'" in html or 'e.key === "k"' in html
+
+    def test_dark_theme_css_variables(self, output_dir, comprehensive_session_data):
+        """Test that dark theme CSS variables are present."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "--bg-color: #0f172a" in html
+        assert "--card-bg: #1e293b" in html
+        assert "--text-color: #e2e8f0" in html
+
+    def test_responsive_mobile_toggle(self, output_dir, comprehensive_session_data):
+        """Test that mobile sidebar toggle exists."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "mobile-sidebar-toggle" in html
+        assert "@media" in html
+
+    def test_copy_button_js(self, output_dir, comprehensive_session_data):
+        """Test that code block copy functionality is present."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "navigator.clipboard" in html
+        assert "copy-btn" in html or "Copy" in html
+
+    def test_session_stats_in_sidebar(self, output_dir, comprehensive_session_data):
+        """Test that sidebar shows prompt/message/tool counts."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "sidebar-stats" in html
+        assert "prompts" in html
+        assert "messages" in html
+        assert "tools" in html
+
+    def test_subagent_link_in_comprehensive_session(
+        self, output_dir, comprehensive_session_data
+    ):
+        """Test that the Task tool result has a subagent link."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "../agent-deploy789xyz/unified.html" in html
+        assert "View subagent transcript" in html
+
+    def test_scrollbar_dark_theme(self, output_dir, comprehensive_session_data):
+        """Test that scrollbar has dark theme styling."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "::-webkit-scrollbar" in html
+
+    def test_timestamps_rendered(self, output_dir, comprehensive_session_data):
+        """Test that timestamps are included in messages."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "<time" in html
+        assert "data-timestamp" in html
+
+    def test_todo_statuses_rendered(self, output_dir, comprehensive_session_data):
+        """Test that todo items render with correct status classes."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "todo-completed" in html
+        assert "todo-in-progress" in html
+        assert "todo-pending" in html
+
+    def test_chart_js_renders_bars(self, output_dir, comprehensive_session_data):
+        """Test that chart JavaScript renders I/O and cache bars."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        # Chart JS should reference the color scheme
+        assert "#3b82f6" in html  # input (blue)
+        assert "#f97316" in html  # output (orange)
+        assert "#06b6d4" in html  # cache read (cyan)
+        assert "#f59e0b" in html  # cache write (amber)
+
+    def test_edit_tool_shows_replace_all(self, output_dir):
+        """Test that Edit tool with replace_all flag renders correctly."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Replace all occurrences", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_edit_ra",
+                                "name": "Edit",
+                                "input": {
+                                    "file_path": "/project/test.py",
+                                    "old_string": "foo",
+                                    "new_string": "bar",
+                                    "replace_all": True,
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_edit_ra",
+                                "content": "File edited",
+                            }
+                        ],
+                    },
+                },
+            ]
+        }
+
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "replace all" in html.lower()
+
+    def test_truncatable_content(self, output_dir, comprehensive_session_data):
+        """Test that truncatable wrappers with expand buttons are present."""
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(
+            json.dumps(comprehensive_session_data), encoding="utf-8"
+        )
+
+        generate_unified_html(session_file, output_dir)
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+
+        assert "truncatable" in html
+        assert "expand-btn" in html
