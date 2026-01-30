@@ -667,6 +667,44 @@ class TestTokenUsageCharts:
         assert "--chart-cache-read" in html
         assert "--chart-cache-write" in html
         assert "--chart-cost" in html
+        # Output color should be orange, not purple
+        assert "--chart-output: #f97316" in html
+
+    def test_timeseries_chart_present_in_master_index(
+        self, mock_projects_with_usage, output_dir
+    ):
+        """Test that timeseries chart is rendered in archive index."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "index.html").read_text()
+        assert "timeseries-chart" in html
+        assert "Usage Over Time" in html
+        assert "createTimeseries" in html
+        assert "Cumulative I/O Tokens" in html
+        assert "Cumulative Est. Cost" in html
+
+    def test_timeseries_chart_present_in_project_index(
+        self, mock_projects_with_usage, output_dir
+    ):
+        """Test that timeseries chart is rendered in project index."""
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "project-a" / "index.html").read_text()
+        assert "timeseries-chart" in html
+        assert "Usage Over Time" in html
+        assert "createTimeseries" in html
+
+    def test_session_date_includes_date_and_time(
+        self, mock_projects_with_usage, output_dir
+    ):
+        """Test that session cards show date and time, not just time."""
+        import re
+
+        generate_batch_html(mock_projects_with_usage, output_dir, new_ui=True)
+        html = (output_dir / "project-a" / "index.html").read_text()
+        # Date format should be like "Jan 01, 2025 10:00"
+        date_pattern = r"[A-Z][a-z]{2} \d{2}, \d{4} \d{2}:\d{2}"
+        assert re.search(
+            date_pattern, html
+        ), "Session date should include date and time (e.g. 'Jan 01, 2025 10:00')"
 
     def test_no_dashboard_without_token_data(self, mock_projects_dir, output_dir):
         """Test that no dashboard appears when there's no token data."""

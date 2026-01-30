@@ -686,7 +686,8 @@ def _generate_project_index(project, output_dir, new_ui=False):
         session_data = {
             "name": session["path"].stem,
             "summary": session["summary"],
-            "date": mod_time.strftime("%Y-%m-%d %H:%M"),
+            "date": mod_time.strftime("%b %d, %Y %H:%M"),
+            "sort_date": mod_time.strftime("%Y-%m-%d"),
             "size_kb": session["size"] / 1024,
             "token_stats": None,
         }
@@ -713,6 +714,27 @@ def _generate_project_index(project, output_dir, new_ui=False):
 
         sessions_data.append(session_data)
 
+    # Build timeseries data (sorted chronologically)
+    timeseries = []
+    for s in sessions_data:
+        if "input_tokens" in s:
+            timeseries.append(
+                {
+                    "date": s["sort_date"],
+                    "io_tokens": s["input_tokens"] + s["output_tokens"],
+                    "cost": round(s["cost"], 2),
+                }
+            )
+    timeseries.sort(key=lambda x: x["date"])
+    # Make cumulative
+    cum_io = 0
+    cum_cost = 0.0
+    for point in timeseries:
+        cum_io += point["io_tokens"]
+        cum_cost += point["cost"]
+        point["cum_io"] = cum_io
+        point["cum_cost"] = round(cum_cost, 2)
+
     # Format project token stats
     project_token_stats = None
     if project_totals["total_tokens"] > 0:
@@ -735,6 +757,7 @@ def _generate_project_index(project, output_dir, new_ui=False):
             project_totals=(
                 project_totals if project_totals["total_tokens"] > 0 else None
             ),
+            timeseries_json=json.dumps(timeseries) if timeseries else "[]",
         )
     else:
         html_content = template.render(
@@ -777,6 +800,7 @@ def _generate_master_index(projects, output_dir, new_ui=False):
     # Format projects for template
     projects_data = []
     total_sessions = 0
+    all_session_points = []  # For archive-wide timeseries
 
     for project in projects:
         session_count = len(project["sessions"])
@@ -810,6 +834,18 @@ def _generate_master_index(projects, output_dir, new_ui=False):
                     "cache_creation_tokens"
                 ]
                 project_totals["cost"] += token_stats["cost"]
+                # Collect for archive timeseries
+                session_date = datetime.fromtimestamp(session["mtime"]).strftime(
+                    "%Y-%m-%d"
+                )
+                all_session_points.append(
+                    {
+                        "date": session_date,
+                        "io_tokens": token_stats["input_tokens"]
+                        + token_stats["output_tokens"],
+                        "cost": round(token_stats["cost"], 2),
+                    }
+                )
 
         # Format project token stats
         project_token_stats = None
@@ -849,6 +885,16 @@ def _generate_master_index(projects, output_dir, new_ui=False):
             project_data["cost"] = project_totals["cost"]
         projects_data.append(project_data)
 
+    # Build archive timeseries (sorted chronologically, cumulative)
+    all_session_points.sort(key=lambda x: x["date"])
+    cum_io = 0
+    cum_cost = 0.0
+    for point in all_session_points:
+        cum_io += point["io_tokens"]
+        cum_cost += point["cost"]
+        point["cum_io"] = cum_io
+        point["cum_cost"] = round(cum_cost, 2)
+
     # Format archive token stats
     archive_token_stats = None
     if archive_totals["total_tokens"] > 0:
@@ -870,6 +916,9 @@ def _generate_master_index(projects, output_dir, new_ui=False):
             archive_token_stats=archive_token_stats,
             archive_totals=(
                 archive_totals if archive_totals["total_tokens"] > 0 else None
+            ),
+            timeseries_json=(
+                json.dumps(all_session_points) if all_session_points else "[]"
             ),
         )
     else:
@@ -2672,7 +2721,7 @@ UNIFIED_JS = """
         var html = '';
         // IO bar
         if (ioTotal > 0) {
-            var ioSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#8b5cf6', l: 'out'}].filter(function(s) { return s.v > 0; });
+            var ioSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#f97316', l: 'out'}].filter(function(s) { return s.v > 0; });
             var ioBar = ioSegs.map(function(s) {
                 return '<div class="mini-bar-segment" style="width:' + (s.v/ioTotal*100).toFixed(1) + '%;background:' + s.c + '" title="' + s.l + ': ' + fmtN(s.v) + '"></div>';
             }).join('');
@@ -2687,7 +2736,7 @@ UNIFIED_JS = """
             html += '<div class="mini-chart-row"><span class="mini-bar-label">cache</span><div class="mini-bar">' + cacheBar + '</div></div>';
         }
         // Stats line
-        var allSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#8b5cf6', l: 'out'}, {v: cr, c: '#06b6d4', l: 'cached'}, {v: cw, c: '#f59e0b', l: 'cache-wr'}].filter(function(s) { return s.v > 0; });
+        var allSegs = [{v: inp, c: '#3b82f6', l: 'in'}, {v: out, c: '#f97316', l: 'out'}, {v: cr, c: '#06b6d4', l: 'cached'}, {v: cw, c: '#f59e0b', l: 'cache-wr'}].filter(function(s) { return s.v > 0; });
         var stats = allSegs.map(function(s) {
             return '<span><span style="color:' + s.c + '">' + fmtN(s.v) + '</span> ' + s.l + '</span>';
         }).join(' &middot; ');
