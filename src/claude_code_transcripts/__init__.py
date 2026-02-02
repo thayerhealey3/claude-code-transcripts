@@ -1540,10 +1540,14 @@ def render_message(log_type, message_json, timestamp, usage=None):
         content_html = render_user_message_content(message_data)
         # Check if this is a tool result message
         if is_tool_result_message(message_data):
-            role_class, role_label = "tool-reply", "Tool reply"
             tool_names = resolve_tool_names_for_result(message_data)
             if tool_names:
                 data_tools = ",".join(tool_names)
+            # Use distinct label/class for subagent (Task) results
+            if "Task" in tool_names:
+                role_class, role_label = "subagent-result", "Subagent"
+            else:
+                role_class, role_label = "tool-reply", "Tool reply"
         else:
             role_class, role_label = "user", "User"
     elif log_type == "assistant":
@@ -1583,6 +1587,10 @@ h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom:
 .tool-reply .role-label { color: #e65100; }
 .tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
 .tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message.subagent-result { background: #e8eaf6; border-left: 4px solid #5c6bc0; }
+.subagent-result .role-label { color: #3949ab; }
+.subagent-result .tool-result { background: transparent; padding: 0; margin: 0; }
+.subagent-result .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e8eaf6); }
 .message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
 .role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .user .role-label { color: var(--user-border); }
@@ -2223,6 +2231,14 @@ body {
 }
 
 .tool-reply .role-label { color: #fcd34d; }
+
+.message.subagent-result {
+    background: #1e1b4b;
+    border-top: 1px solid #818cf8;
+    border-bottom: 1px solid #818cf8;
+}
+
+.subagent-result .role-label { color: #a5b4fc; }
 
 .message-header {
     display: flex;
@@ -3283,7 +3299,7 @@ UNIFIED_JS = """
             var dataTools = message.getAttribute('data-tools');
             var toolList = dataTools ? dataTools.split(',') : [];
 
-            if (message.classList.contains('user') && !message.classList.contains('tool-reply')) {
+            if (message.classList.contains('user') && !message.classList.contains('tool-reply') && !message.classList.contains('subagent-result')) {
                 // Regular user message
                 if (!filters['user']) shouldHide = true;
             } else if (message.classList.contains('assistant')) {
@@ -3296,8 +3312,8 @@ UNIFIED_JS = """
                     });
                     if (!anyToolVisible) shouldHide = true;
                 }
-            } else if (message.classList.contains('tool-reply')) {
-                // Tool reply message - hide if all its tools are filtered out
+            } else if (message.classList.contains('tool-reply') || message.classList.contains('subagent-result')) {
+                // Tool reply or subagent result - hide if all its tools are filtered out
                 if (toolList.length > 0) {
                     var anyVisible = toolList.some(function(t) {
                         return filters[t] !== false;
@@ -3723,11 +3739,15 @@ def render_message_unified(log_type, message_json, timestamp, usage=None):
         content_html = render_user_message_content_unified(message_data)
         # Check if this is a tool result message
         if is_tool_result_message(message_data):
-            role_class, role_label = "tool-reply", "Tool reply"
             # Resolve tool names from tool_use_id mapping
             tool_names = resolve_tool_names_for_result(message_data)
             if tool_names:
                 data_tools = ",".join(tool_names)
+            # Use distinct label/class for subagent (Task) results
+            if "Task" in tool_names:
+                role_class, role_label = "subagent-result", "Subagent"
+            else:
+                role_class, role_label = "tool-reply", "Tool reply"
         else:
             role_class, role_label = "user", "User"
     elif log_type == "assistant":
