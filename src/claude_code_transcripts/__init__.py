@@ -51,10 +51,56 @@ LONG_TEXT_THRESHOLD = (
 # Module-level dict mapping tool_use_id -> tool_name, populated during rendering
 _tool_id_to_name = {}
 
+# Module-level dict mapping tool_use_id -> agent_session_id for Task tool results
+_subagent_ids = {}
+
+# Regex to extract agentId from Task tool result content
+AGENT_ID_PATTERN = re.compile(r"agentId:\s*([a-zA-Z0-9_-]+)")
+
 
 def reset_tool_id_tracking():
     """Reset the tool_use_id -> tool_name mapping. Call before rendering a new session."""
     _tool_id_to_name.clear()
+    _subagent_ids.clear()
+
+
+def extract_subagent_ids(loglines):
+    """Pre-scan loglines to extract agentId from Task tool results.
+
+    Returns dict mapping tool_use_id to agent_session_id.
+    """
+    # First, find all Task tool_use_ids
+    task_tool_ids = set()
+    for entry in loglines:
+        message_data = entry.get("message", {})
+        content = message_data.get("content", [])
+        if isinstance(content, list):
+            for block in content:
+                if (
+                    isinstance(block, dict)
+                    and block.get("type") == "tool_use"
+                    and block.get("name") == "Task"
+                ):
+                    tool_id = block.get("id", "")
+                    if tool_id:
+                        task_tool_ids.add(tool_id)
+
+    # Then find matching tool_results with agentId
+    agent_map = {}
+    for entry in loglines:
+        message_data = entry.get("message", {})
+        content = message_data.get("content", [])
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    tool_use_id = block.get("tool_use_id", "")
+                    if tool_use_id in task_tool_ids:
+                        result_content = block.get("content", "")
+                        if isinstance(result_content, str):
+                            match = AGENT_ID_PATTERN.search(result_content)
+                            if match:
+                                agent_map[tool_use_id] = match.group(1)
+    return agent_map
 
 
 def extract_tool_names_from_message(message_data):
@@ -1209,6 +1255,14 @@ def render_bash_tool(tool_input, tool_id):
     return _macros.bash_tool(command, description, tool_id)
 
 
+def render_task_tool(tool_input, tool_id):
+    """Render Task tool calls with description and subagent type."""
+    description = tool_input.get("description", "")
+    subagent_type = tool_input.get("subagent_type", "")
+    prompt = html.escape(tool_input.get("prompt", ""))
+    return _macros.task_tool(description, subagent_type, prompt, tool_id)
+
+
 def render_content_block(block):
     if not isinstance(block, dict):
         return f"<p>{html.escape(str(block))}</p>"
@@ -1236,6 +1290,8 @@ def render_content_block(block):
             return render_edit_tool(tool_input, tool_id)
         if tool_name == "Bash":
             return render_bash_tool(tool_input, tool_id)
+        if tool_name == "Task":
+            return render_task_tool(tool_input, tool_id)
         description = tool_input.get("description", "")
         display_input = {k: v for k, v in tool_input.items() if k != "description"}
         input_json = json.dumps(display_input, indent=2, ensure_ascii=False)
@@ -1243,6 +1299,10 @@ def render_content_block(block):
     elif block_type == "tool_result":
         content = block.get("content", "")
         is_error = block.get("is_error", False)
+        tool_use_id = block.get("tool_use_id", "")
+
+        # Check if this is a Task tool result with a subagent link
+        agent_id = _subagent_ids.get(tool_use_id)
 
         # Check for git commits and render with styled cards
         if isinstance(content, str):
@@ -1276,6 +1336,18 @@ def render_content_block(block):
             content_html = format_json(content)
         else:
             content_html = format_json(content)
+
+        # Add subagent link for Task tool results
+        if agent_id:
+            escaped_id = html.escape(agent_id)
+            subagent_link = (
+                f'<div class="subagent-link">'
+                f'<a href="../agent-{escaped_id}/unified.html">'
+                f"View subagent transcript"
+                f"</a></div>"
+            )
+            content_html = subagent_link + content_html
+
         return _macros.tool_result(content_html, is_error)
     else:
         return format_json(block)
@@ -1321,10 +1393,22 @@ def render_user_content_block(block):
         # Tool results in user messages
         content = block.get("content", "")
         is_error = block.get("is_error", False)
+        tool_use_id = block.get("tool_use_id", "")
+        agent_id = _subagent_ids.get(tool_use_id)
         if isinstance(content, str):
             content_html = f"<pre>{html.escape(content)}</pre>"
         else:
             content_html = format_json(content)
+        # Add subagent link for Task tool results
+        if agent_id:
+            escaped_id = html.escape(agent_id)
+            subagent_link = (
+                f'<div class="subagent-link">'
+                f'<a href="../agent-{escaped_id}/unified.html">'
+                f"View subagent transcript"
+                f"</a></div>"
+            )
+            content_html = subagent_link + content_html
         return _macros.tool_result(content_html, is_error)
     else:
         return format_json(block)
@@ -1556,6 +1640,14 @@ time { color: var(--text-muted); font-size: 0.8rem; }
 .todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
 .todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
 .todo-pending .todo-content { color: #616161; }
+.task-tool { background: linear-gradient(135deg, #e8eaf6 0%, #e3f2fd 100%); border: 1px solid #5c6bc0; }
+.task-tool .tool-header { color: #3949ab; }
+.subagent-type { display: inline-block; padding: 1px 8px; border-radius: 10px; background: rgba(63, 81, 181, 0.15); color: #3949ab; font-size: 0.8em; margin-left: 6px; font-weight: 500; }
+.task-prompt { color: var(--text-muted); font-size: 0.85rem; }
+.subagent-link { margin: 8px 0; }
+.subagent-link a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(63, 81, 181, 0.1); border: 1px solid rgba(63, 81, 181, 0.3); border-radius: 6px; color: #3949ab; text-decoration: none; font-size: 0.85em; font-weight: 500; }
+.subagent-link a:hover { background: rgba(63, 81, 181, 0.2); border-color: rgba(63, 81, 181, 0.5); }
+.subagent-link a::before { content: '→'; font-weight: bold; }
 pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
 pre.json { color: #e0e0e0; }
 code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
@@ -2387,6 +2479,59 @@ time { color: var(--text-muted); font-size: 0.8rem; }
 .todo-in-progress .todo-content { color: #fcd34d; font-weight: 500; }
 .todo-pending .todo-icon { color: var(--text-muted); background: rgba(255,255,255,0.1); }
 .todo-pending .todo-content { color: var(--text-muted); }
+
+/* Task tool (subagent) */
+.task-tool {
+    background: linear-gradient(135deg, #1e1b4b 0%, #172554 100%);
+    border: 1px solid #818cf8;
+}
+
+.task-tool .tool-header { color: #a5b4fc; }
+
+.subagent-type {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+    font-size: 0.8em;
+    margin-left: 6px;
+    font-weight: 500;
+}
+
+.task-prompt {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.subagent-link {
+    margin: 8px 0;
+}
+
+.subagent-link a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 6px;
+    color: #818cf8;
+    text-decoration: none;
+    font-size: 0.85em;
+    font-weight: 500;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.subagent-link a:hover {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.5);
+}
+
+.subagent-link a::before {
+    content: '→';
+    font-weight: bold;
+}
 
 /* Code blocks */
 pre {
@@ -3312,10 +3457,17 @@ def generate_html(json_path, output_dir, github_repo=None):
     output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True)
 
+    # Reset tool tracking for this session
+    reset_tool_id_tracking()
+
     # Load session file (supports both JSON and JSONL)
     data = parse_session_file(json_path)
 
     loglines = data.get("loglines", [])
+
+    # Pre-scan for subagent IDs from Task tool results
+    global _subagent_ids
+    _subagent_ids = extract_subagent_ids(loglines)
 
     # Calculate token usage statistics
     token_totals = calculate_session_tokens(loglines)
@@ -3627,6 +3779,10 @@ def generate_unified_html(json_path, output_dir, github_repo=None, breadcrumbs=N
     # Load session file (supports both JSON and JSONL)
     data = parse_session_file(json_path)
     loglines = data.get("loglines", [])
+
+    # Pre-scan for subagent IDs from Task tool results
+    global _subagent_ids
+    _subagent_ids = extract_subagent_ids(loglines)
 
     # Calculate token usage statistics
     token_totals = calculate_session_tokens(loglines)
