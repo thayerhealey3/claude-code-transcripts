@@ -389,6 +389,14 @@
   
   .tool-reply .role-label { color: #fcd34d; }
   
+  .message.subagent-result {
+      background: #1e1b4b;
+      border-top: 1px solid #818cf8;
+      border-bottom: 1px solid #818cf8;
+  }
+  
+  .subagent-result .role-label { color: #a5b4fc; }
+  
   .message-header {
       display: flex;
       justify-content: space-between;
@@ -1077,6 +1085,30 @@
                   <span class="filter-indicator"></span>
                   <span>Assistant</span>
               </label>
+              <label class="filter-toggle active" data-filter="Bash">
+                  <span class="filter-indicator"></span>
+                  <span>Bash</span>
+              </label>
+              <label class="filter-toggle active" data-filter="Edit">
+                  <span class="filter-indicator"></span>
+                  <span>Edit</span>
+              </label>
+              <label class="filter-toggle active" data-filter="Glob">
+                  <span class="filter-indicator"></span>
+                  <span>Glob</span>
+              </label>
+              <label class="filter-toggle active" data-filter="Grep">
+                  <span class="filter-indicator"></span>
+                  <span>Grep</span>
+              </label>
+              <label class="filter-toggle active" data-filter="Task">
+                  <span class="filter-indicator"></span>
+                  <span>Task</span>
+              </label>
+              <label class="filter-toggle active" data-filter="TodoWrite">
+                  <span class="filter-indicator"></span>
+                  <span>TodoWrite</span>
+              </label>
               <label class="filter-toggle active" data-filter="Write">
                   <span class="filter-indicator"></span>
                   <span>Write</span>
@@ -1084,10 +1116,10 @@
           </div>
   
           <div class="sidebar-stats">
-              <span>1 prompts</span>
-              <span>4 messages</span>
-              <span>1 tools</span>
-              <span>1400 tokens</span>
+              <span>2 prompts</span>
+              <span>17 messages</span>
+              <span>7 tools</span>
+              <span>7930 tokens</span>
           </div>
   
           <nav class="sidebar-nav">
@@ -1095,8 +1127,15 @@
                   <li>
                       <a href="#prompt-1" class="nav-link" data-section="prompt-1">
                           <span class="nav-num">#1</span>
-                          <span class="nav-preview">Create a hello world function</span>
+                          <span class="nav-preview">Build me a web server</span>
                           <time class="nav-time" datetime="2025-01-01T10:00:00.000Z" data-timestamp="2025-01-01T10:00:00.000Z">2025-01-01T10:00:00.000Z</time>
+                      </a>
+                  </li>
+                  <li>
+                      <a href="#prompt-2" class="nav-link" data-section="prompt-2">
+                          <span class="nav-num">#2</span>
+                          <span class="nav-preview">Now deploy it using a subagent</span>
+                          <time class="nav-time" datetime="2025-01-01T10:02:00.000Z" data-timestamp="2025-01-01T10:02:00.000Z">2025-01-01T10:02:00.000Z</time>
                       </a>
                   </li>
               </ul>
@@ -1112,15 +1151,15 @@
       <main id="main-content" class="main-content">
           <header class="main-header">
               <h1>Claude Code Transcript</h1>
-              <p class="header-stats">1 prompts &middot; 4 messages &middot; 1 tool calls &middot; token usage: 1,100 in · 300 out · 1,400 total · est. api cost $0.01</p>
+              <p class="header-stats">2 prompts &middot; 17 messages &middot; 7 tool calls &middot; token usage: 7,100 in · 830 out · 7,930 total · 800 cached · 200 cache-write · est. api cost $0.03</p>
               
               <div class="header-mini-chart"
-                   data-input="1100"
-                   data-output="300"
-                   data-cache-read="0"
-                   data-cache-write="0"
-                   data-cost="0.0078"
-                   data-total="1400">
+                   data-input="7100"
+                   data-output="830"
+                   data-cache-read="800"
+                   data-cache-write="200"
+                   data-cost="0.03474"
+                   data-total="7930">
               </div>
               
           </header>
@@ -1138,19 +1177,77 @@
                   </div>
                   <div class="section-content">
                       <div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
-  <div class="message user" id="msg-2025-01-01T10-00-00-000Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2025-01-01T10-00-00-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:00.000Z" data-timestamp="2025-01-01T10:00:00.000Z">2025-01-01T10:00:00.000Z</time></a></div><div class="message-content">
-  <div class="user-content"><p>Create a hello world function</p></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
-  <div class="message assistant" id="msg-2025-01-01T10-00-05-000Z" data-tools="Write"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 500 · out: 250</span><a href="#msg-2025-01-01T10-00-05-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:05.000Z" data-timestamp="2025-01-01T10:00:05.000Z">2025-01-01T10:00:05.000Z</time></a></div><div class="message-content">
-  <div class="assistant-text"><p>I'll create that function for you.</p></div><div class="file-tool write-tool" data-tool-id="toolu_001">
-  <div class="file-tool-header write-header"><span class="file-tool-icon">📝</span> Write <span class="file-tool-path">hello.py</span></div>
-  <div class="file-tool-fullpath">/project/hello.py</div>
-  <div class="truncatable"><div class="truncatable-content"><pre class="file-content">def hello():
-      return &#39;Hello, World!&#39;
+  <div class="message user" id="msg-2025-01-01T10-00-00-000Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2025-01-01T10-00-00-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:00.000Z" data-timestamp="2025-01-01T10:00:00.000Z">2025-01-01T10:00:00.000Z</time></a></div><div class="message-content">&lt;div class=&#34;system-info&#34;&gt;&lt;div class=&#34;system-info-label&#34;&gt;Ide Opened File&lt;/div&gt;&lt;p&gt;src/main.py&lt;/p&gt;&lt;/div&gt;&lt;div class=&#34;system-info&#34;&gt;&lt;div class=&#34;system-info-label&#34;&gt;System Reminder&lt;/div&gt;&lt;p&gt;Important context&lt;/p&gt;&lt;/div&gt;
+  <div class="user-content"><p>Build me a web server</p></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message assistant" id="msg-2025-01-01T10-00-05-000Z" data-tools="Write"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 1,500 · out: 350</span><a href="#msg-2025-01-01T10-00-05-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:05.000Z" data-timestamp="2025-01-01T10:00:05.000Z">2025-01-01T10:00:05.000Z</time></a></div><div class="message-content">
+  <div class="thinking"><div class="thinking-label">Thinking</div><p>The user wants a web server. I should create a simple Flask app.</p></div>
+  <div class="assistant-text"><p>I'll create a <strong>Flask</strong> web server for you.</p>
+  <pre><code class="language-python">from flask import Flask
+  </code></pre></div><div class="file-tool write-tool" data-tool-id="toolu_write_001">
+  <div class="file-tool-header write-header"><span class="file-tool-icon">📝</span> Write <span class="file-tool-path">server.py</span></div>
+  <div class="file-tool-fullpath">/project/server.py</div>
+  <div class="truncatable"><div class="truncatable-content"><pre class="file-content">from flask import Flask
+  
+  app = Flask(__name__)
+  
+  @app.route(&#39;/&#39;)
+  def hello():
+      return &#39;Hello!&#39;
   </pre></div><button class="expand-btn">Show more</button></div>
   </div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
   <div class="message tool-reply" id="msg-2025-01-01T10-00-10-000Z" data-tools="Write"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2025-01-01T10-00-10-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:10.000Z" data-timestamp="2025-01-01T10:00:10.000Z">2025-01-01T10:00:10.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>File written successfully</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
-  <div class="message assistant" id="msg-2025-01-01T10-00-15-000Z"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 600 · out: 50</span><a href="#msg-2025-01-01T10-00-15-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:15.000Z" data-timestamp="2025-01-01T10:00:15.000Z">2025-01-01T10:00:15.000Z</time></a></div><div class="message-content">
-  <div class="assistant-text"><p>Done! The function is ready.</p></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div>
+  <div class="message assistant" id="msg-2025-01-01T10-00-15-000Z" data-tools="Edit"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 500 · out: 100</span><a href="#msg-2025-01-01T10-00-15-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:15.000Z" data-timestamp="2025-01-01T10:00:15.000Z">2025-01-01T10:00:15.000Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_edit_001">
+  <div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">server.py</span></div>
+  <div class="file-tool-fullpath">/project/server.py</div>
+  <div class="truncatable"><div class="truncatable-content">
+  <div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">return &#39;Hello!&#39;</pre></div>
+  <div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">return &#39;Hello, World!&#39;</pre></div>
+  </div><button class="expand-btn">Show more</button></div>
+  </div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message tool-reply" id="msg-2025-01-01T10-00-20-000Z" data-tools="Edit"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2025-01-01T10-00-20-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:20.000Z" data-timestamp="2025-01-01T10:00:20.000Z">2025-01-01T10:00:20.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>File edited successfully</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message assistant" id="msg-2025-01-01T10-00-25-000Z" data-tools="Bash"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 600 · out: 80</span><a href="#msg-2025-01-01T10-00-25-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:25.000Z" data-timestamp="2025-01-01T10:00:25.000Z">2025-01-01T10:00:25.000Z</time></a></div><div class="message-content">
+  <div class="tool-use bash-tool" data-tool-id="toolu_bash_001">
+  <div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+  <div class="tool-description">Run tests</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">python -m pytest tests/ -v</pre></div><button class="expand-btn">Show more</button></div>
+  </div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message tool-reply" id="msg-2025-01-01T10-00-30-000Z" data-tools="Bash"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2025-01-01T10-00-30-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:30.000Z" data-timestamp="2025-01-01T10:00:30.000Z">2025-01-01T10:00:30.000Z</time></a></div><div class="message-content"><div class="tool-result tool-error"><div class="truncatable"><div class="truncatable-content"><pre>Exit code 1
+  ModuleNotFoundError: No module named &#x27;flask&#x27;</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message assistant" id="msg-2025-01-01T10-00-35-000Z" data-tools="Glob"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 700 · out: 50</span><a href="#msg-2025-01-01T10-00-35-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:35.000Z" data-timestamp="2025-01-01T10:00:35.000Z">2025-01-01T10:00:35.000Z</time></a></div><div class="message-content">
+  <div class="assistant-text"><p>Let me check the project structure.</p></div>
+  <div class="tool-use" data-tool-id="toolu_glob_001"><div class="tool-header"><span class="tool-icon">⚙</span> Glob</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+    &#34;pattern&#34;: &#34;**/*.py&#34;,
+    &#34;path&#34;: &#34;/project&#34;
+  }</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message tool-reply" id="msg-2025-01-01T10-00-40-000Z" data-tools="Glob"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2025-01-01T10-00-40-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:40.000Z" data-timestamp="2025-01-01T10:00:40.000Z">2025-01-01T10:00:40.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>/project/server.py
+  /project/tests/test_server.py</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message assistant" id="msg-2025-01-01T10-00-45-000Z" data-tools="Grep"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 800 · out: 40</span><a href="#msg-2025-01-01T10-00-45-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:45.000Z" data-timestamp="2025-01-01T10:00:45.000Z">2025-01-01T10:00:45.000Z</time></a></div><div class="message-content">
+  <div class="tool-use" data-tool-id="toolu_grep_001"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+    &#34;pattern&#34;: &#34;import flask&#34;,
+    &#34;path&#34;: &#34;/project&#34;
+  }</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message tool-reply" id="msg-2025-01-01T10-00-50-000Z" data-tools="Grep"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2025-01-01T10-00-50-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:50.000Z" data-timestamp="2025-01-01T10:00:50.000Z">2025-01-01T10:00:50.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>/project/server.py:1:from flask import Flask</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message assistant" id="msg-2025-01-01T10-00-55-000Z" data-tools="TodoWrite"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 900 · out: 60</span><a href="#msg-2025-01-01T10-00-55-000Z" class="timestamp-link"><time datetime="2025-01-01T10:00:55.000Z" data-timestamp="2025-01-01T10:00:55.000Z">2025-01-01T10:00:55.000Z</time></a></div><div class="message-content">
+  <div class="todo-list" data-tool-id="toolu_todo_001"><div class="todo-header"><span class="todo-header-icon">☰</span> Task List</div><ul class="todo-items"><li class="todo-item todo-completed"><span class="todo-icon">✓</span><span class="todo-content">Create server</span></li><li class="todo-item todo-in-progress"><span class="todo-icon">→</span><span class="todo-content">Fix dependencies</span></li><li class="todo-item todo-pending"><span class="todo-icon">○</span><span class="todo-content">Run tests</span></li></ul></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message tool-reply" id="msg-2025-01-01T10-01-00-000Z" data-tools="TodoWrite"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2025-01-01T10-01-00-000Z" class="timestamp-link"><time datetime="2025-01-01T10:01:00.000Z" data-timestamp="2025-01-01T10:01:00.000Z">2025-01-01T10:01:00.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Todos updated</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div>
+                  </div>
+              </section>
+              <section id="prompt-2" class="transcript-section" data-prompt="2">
+                  <div class="section-header">
+                      <span class="section-num">#2</span>
+                      <time datetime="2025-01-01T10:02:00.000Z" data-timestamp="2025-01-01T10:02:00.000Z">2025-01-01T10:02:00.000Z</time>
+                  </div>
+                  <div class="section-content">
+                      <div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message user" id="msg-2025-01-01T10-02-00-000Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2025-01-01T10-02-00-000Z" class="timestamp-link"><time datetime="2025-01-01T10:02:00.000Z" data-timestamp="2025-01-01T10:02:00.000Z">2025-01-01T10:02:00.000Z</time></a></div><div class="message-content">
+  <div class="user-content"><p>Now deploy it using a subagent</p></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message assistant" id="msg-2025-01-01T10-02-05-000Z" data-tools="Task"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 1,000 · out: 120</span><a href="#msg-2025-01-01T10-02-05-000Z" class="timestamp-link"><time datetime="2025-01-01T10:02:05.000Z" data-timestamp="2025-01-01T10:02:05.000Z">2025-01-01T10:02:05.000Z</time></a></div><div class="message-content">
+  <div class="assistant-text"><p>I'll spawn a subagent to handle deployment.</p></div>
+  <div class="tool-use task-tool" data-tool-id="toolu_task_001"><div class="tool-header"><span class="tool-icon">🔀</span> Task <span class="subagent-type">Bash</span></div><div class="tool-description">Deploy web server</div><div class="truncatable"><div class="truncatable-content"><pre class="task-prompt">Deploy the Flask server to production</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message subagent-result" id="msg-2025-01-01T10-02-30-000Z" data-tools="Task"><div class="message-header"><span class="role-label">Subagent</span><a href="#msg-2025-01-01T10-02-30-000Z" class="timestamp-link"><time datetime="2025-01-01T10:02:30.000Z" data-timestamp="2025-01-01T10:02:30.000Z">2025-01-01T10:02:30.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><div class="subagent-link"><a href="../agent-deploy789xyz/unified.html">View subagent transcript</a></div><pre>Server deployed successfully to https://example.com
+  
+  agentId: deploy789xyz</pre></div><button class="expand-btn">Show more</button></div></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div><div class="message-wrapper"><button class="msg-nav-btn prev-btn" aria-label="Previous message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+  <div class="message assistant" id="msg-2025-01-01T10-02-35-000Z"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 1,100 · out: 30</span><a href="#msg-2025-01-01T10-02-35-000Z" class="timestamp-link"><time datetime="2025-01-01T10:02:35.000Z" data-timestamp="2025-01-01T10:02:35.000Z">2025-01-01T10:02:35.000Z</time></a></div><div class="message-content">
+  <div class="assistant-text"><p>Your server is deployed and running!</p></div></div></div><button class="msg-nav-btn next-btn" aria-label="Next message"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button></div>
                   </div>
               </section>
           </div>
@@ -1556,7 +1653,7 @@
               var dataTools = message.getAttribute('data-tools');
               var toolList = dataTools ? dataTools.split(',') : [];
   
-              if (message.classList.contains('user') && !message.classList.contains('tool-reply')) {
+              if (message.classList.contains('user') && !message.classList.contains('tool-reply') && !message.classList.contains('subagent-result')) {
                   // Regular user message
                   if (!filters['user']) shouldHide = true;
               } else if (message.classList.contains('assistant')) {
@@ -1569,8 +1666,8 @@
                       });
                       if (!anyToolVisible) shouldHide = true;
                   }
-              } else if (message.classList.contains('tool-reply')) {
-                  // Tool reply message - hide if all its tools are filtered out
+              } else if (message.classList.contains('tool-reply') || message.classList.contains('subagent-result')) {
+                  // Tool reply or subagent result - hide if all its tools are filtered out
                   if (toolList.length > 0) {
                       var anyVisible = toolList.some(function(t) {
                           return filters[t] !== false;

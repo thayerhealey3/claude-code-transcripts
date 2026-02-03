@@ -1352,6 +1352,34 @@ class TestSubagentLinking:
         html = (output_dir / "unified.html").read_text(encoding="utf-8")
         assert "View subagent transcript" in html
 
+    def test_task_result_labeled_as_subagent(self, output_dir):
+        """Test that Task tool result is labeled 'Subagent' not 'Tool reply'."""
+        session_data = self._make_task_session()
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should use subagent-result class, not tool-reply
+        assert 'class="message subagent-result"' in html
+        # Should show "Subagent" label
+        assert ">Subagent</span>" in html
+
+    def test_task_result_has_subagent_styling(self, output_dir):
+        """Test that subagent results have distinct styling from tool replies."""
+        session_data = self._make_task_session()
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # Should have CSS for subagent-result
+        assert ".message.subagent-result" in html
+        # Should be styled with indigo, not orange like tool-reply
+        assert ".subagent-result .role-label" in html
+
     def test_task_tool_has_data_tools_attribute(self, output_dir):
         """Test that assistant message with Task tool has data-tools attribute."""
         session_data = self._make_task_session()
@@ -1457,20 +1485,32 @@ class TestSubagentLinking:
 
 
 class TestUnifiedHtmlSnapshot:
-    """Snapshot tests for unified HTML output."""
+    """Snapshot tests for unified HTML output covering all features."""
 
     def test_unified_html_snapshot(self, output_dir, snapshot: SnapshotAssertion):
-        """Test that unified HTML output matches expected snapshot."""
+        """Test that unified HTML output matches expected snapshot.
+
+        Uses a comprehensive session with all message/tool types:
+        - User messages with system info tags (ide_opened_file, system_reminder)
+        - Assistant messages with thinking blocks, markdown, and code
+        - Write, Edit, Bash, Glob, Grep, TodoWrite, and Task tools
+        - Error tool results
+        - Token usage with cache stats
+        - Task tool with subagent link (agentId)
+        - Multiple user prompts for sidebar navigation
+        """
         session_data = {
             "loglines": [
+                # User prompt with system info
                 {
                     "type": "user",
                     "timestamp": "2025-01-01T10:00:00.000Z",
                     "message": {
-                        "content": "Create a hello world function",
+                        "content": "<ide_opened_file>src/main.py</ide_opened_file>\n<system_reminder>Important context</system_reminder>\nBuild me a web server",
                         "role": "user",
                     },
                 },
+                # Assistant with thinking + text + Write tool
                 {
                     "type": "assistant",
                     "timestamp": "2025-01-01T10:00:05.000Z",
@@ -1478,22 +1518,32 @@ class TestUnifiedHtmlSnapshot:
                         "role": "assistant",
                         "content": [
                             {
+                                "type": "thinking",
+                                "thinking": "The user wants a web server. I should create a simple Flask app.",
+                            },
+                            {
                                 "type": "text",
-                                "text": "I'll create that function for you.",
+                                "text": "I'll create a **Flask** web server for you.\n\n```python\nfrom flask import Flask\n```",
                             },
                             {
                                 "type": "tool_use",
-                                "id": "toolu_001",
+                                "id": "toolu_write_001",
                                 "name": "Write",
                                 "input": {
-                                    "file_path": "/project/hello.py",
-                                    "content": "def hello():\n    return 'Hello, World!'\n",
+                                    "file_path": "/project/server.py",
+                                    "content": "from flask import Flask\n\napp = Flask(__name__)\n\n@app.route('/')\ndef hello():\n    return 'Hello!'\n",
                                 },
                             },
                         ],
                     },
-                    "usage": {"input_tokens": 500, "output_tokens": 250},
+                    "usage": {
+                        "input_tokens": 1500,
+                        "output_tokens": 350,
+                        "cache_read_input_tokens": 800,
+                        "cache_creation_input_tokens": 200,
+                    },
                 },
+                # Write tool result
                 {
                     "type": "user",
                     "timestamp": "2025-01-01T10:00:10.000Z",
@@ -1502,22 +1552,268 @@ class TestUnifiedHtmlSnapshot:
                         "content": [
                             {
                                 "type": "tool_result",
-                                "tool_use_id": "toolu_001",
+                                "tool_use_id": "toolu_write_001",
                                 "content": "File written successfully",
                             }
                         ],
                     },
                 },
+                # Assistant with Edit tool
                 {
                     "type": "assistant",
                     "timestamp": "2025-01-01T10:00:15.000Z",
                     "message": {
                         "role": "assistant",
                         "content": [
-                            {"type": "text", "text": "Done! The function is ready."}
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_edit_001",
+                                "name": "Edit",
+                                "input": {
+                                    "file_path": "/project/server.py",
+                                    "old_string": "return 'Hello!'",
+                                    "new_string": "return 'Hello, World!'",
+                                },
+                            },
                         ],
                     },
-                    "usage": {"input_tokens": 600, "output_tokens": 50},
+                    "usage": {"input_tokens": 500, "output_tokens": 100},
+                },
+                # Edit tool result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:20.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_edit_001",
+                                "content": "File edited successfully",
+                            }
+                        ],
+                    },
+                },
+                # Assistant with Bash tool
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:25.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_bash_001",
+                                "name": "Bash",
+                                "input": {
+                                    "command": "python -m pytest tests/ -v",
+                                    "description": "Run tests",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 600, "output_tokens": 80},
+                },
+                # Bash tool result (error)
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:30.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_bash_001",
+                                "content": "Exit code 1\nModuleNotFoundError: No module named 'flask'",
+                                "is_error": True,
+                            }
+                        ],
+                    },
+                },
+                # Assistant with Glob tool
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:35.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Let me check the project structure.",
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_glob_001",
+                                "name": "Glob",
+                                "input": {"pattern": "**/*.py", "path": "/project"},
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 700, "output_tokens": 50},
+                },
+                # Glob tool result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:40.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_glob_001",
+                                "content": "/project/server.py\n/project/tests/test_server.py",
+                            }
+                        ],
+                    },
+                },
+                # Assistant with Grep tool
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:45.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_grep_001",
+                                "name": "Grep",
+                                "input": {
+                                    "pattern": "import flask",
+                                    "path": "/project",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 800, "output_tokens": 40},
+                },
+                # Grep result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:50.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_grep_001",
+                                "content": "/project/server.py:1:from flask import Flask",
+                            }
+                        ],
+                    },
+                },
+                # Assistant with TodoWrite
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:55.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_todo_001",
+                                "name": "TodoWrite",
+                                "input": {
+                                    "todos": [
+                                        {
+                                            "content": "Create server",
+                                            "status": "completed",
+                                            "activeForm": "Creating server",
+                                        },
+                                        {
+                                            "content": "Fix dependencies",
+                                            "status": "in_progress",
+                                            "activeForm": "Fixing dependencies",
+                                        },
+                                        {
+                                            "content": "Run tests",
+                                            "status": "pending",
+                                            "activeForm": "Running tests",
+                                        },
+                                    ]
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 900, "output_tokens": 60},
+                },
+                # Todo result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:01:00.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_todo_001",
+                                "content": "Todos updated",
+                            }
+                        ],
+                    },
+                },
+                # Second user prompt
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:02:00.000Z",
+                    "message": {
+                        "content": "Now deploy it using a subagent",
+                        "role": "user",
+                    },
+                },
+                # Assistant with Task tool (subagent)
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:02:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "I'll spawn a subagent to handle deployment.",
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_task_001",
+                                "name": "Task",
+                                "input": {
+                                    "description": "Deploy web server",
+                                    "prompt": "Deploy the Flask server to production",
+                                    "subagent_type": "Bash",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 1000, "output_tokens": 120},
+                },
+                # Task result with agentId (subagent response)
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:02:30.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_task_001",
+                                "content": "Server deployed successfully to https://example.com\n\nagentId: deploy789xyz",
+                            }
+                        ],
+                    },
+                },
+                # Final assistant response
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:02:35.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Your server is deployed and running!",
+                            }
+                        ],
+                    },
+                    "usage": {"input_tokens": 1100, "output_tokens": 30},
                 },
             ]
         }
@@ -1860,7 +2156,7 @@ class TestComprehensiveNewUi:
         }
 
     def test_all_message_types_rendered(self, output_dir, comprehensive_session_data):
-        """Test that user, assistant, tool-reply, and all tool types are rendered."""
+        """Test that user, assistant, tool-reply, subagent-result, and all tool types are rendered."""
         session_file = output_dir / "test_session.json"
         session_file.write_text(
             json.dumps(comprehensive_session_data), encoding="utf-8"
@@ -1873,8 +2169,11 @@ class TestComprehensiveNewUi:
         assert 'class="message user"' in html
         # Assistant messages
         assert 'class="message assistant"' in html
-        # Tool reply messages
+        # Tool reply messages (for non-Task tool results)
         assert 'class="message tool-reply"' in html
+        # Subagent result messages (for Task tool results)
+        assert 'class="message subagent-result"' in html
+        assert ">Subagent</span>" in html
 
     def test_all_tool_types_rendered(self, output_dir, comprehensive_session_data):
         """Test that Write, Edit, Bash, Glob, Grep, TodoWrite, and Task tools render."""

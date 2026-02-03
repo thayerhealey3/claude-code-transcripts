@@ -19,6 +19,10 @@ h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom:
 .tool-reply .role-label { color: #e65100; }
 .tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
 .tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message.subagent-result { background: #e8eaf6; border-left: 4px solid #5c6bc0; }
+.subagent-result .role-label { color: #3949ab; }
+.subagent-result .tool-result { background: transparent; padding: 0; margin: 0; }
+.subagent-result .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e8eaf6); }
 .message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
 .role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .user .role-label { color: var(--user-border); }
@@ -188,7 +192,7 @@ def multiply(a: int, b: int) -&gt; int:
 <div class="message assistant" id="msg-2025-12-24T10-05-15-000Z" data-tools="Task"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 580 · out: 20</span><a href="#msg-2025-12-24T10-05-15-000Z" class="timestamp-link"><time datetime="2025-12-24T10:05:15.000Z" data-timestamp="2025-12-24T10:05:15.000Z">2025-12-24T10:05:15.000Z</time></a></div><div class="message-content">
 <div class="assistant-text"><p>Added multiply function! Let me run the tests using a subagent.</p></div>
 <div class="tool-use task-tool" data-tool-id="toolu_task_001"><div class="tool-header"><span class="tool-icon">🔀</span> Task <span class="subagent-type">Bash</span></div><div class="tool-description">Run test suite</div><div class="truncatable"><div class="truncatable-content"><pre class="task-prompt">Run all tests with pytest and report results</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
-<div class="message tool-reply" id="msg-2025-12-24T10-05-20-000Z" data-tools="Task"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2025-12-24T10-05-20-000Z" class="timestamp-link"><time datetime="2025-12-24T10:05:20.000Z" data-timestamp="2025-12-24T10:05:20.000Z">2025-12-24T10:05:20.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><div class="subagent-link"><a href="../agent-abc123def/unified.html">View subagent transcript</a></div><pre>All 5 tests passed successfully.
+<div class="message subagent-result" id="msg-2025-12-24T10-05-20-000Z" data-tools="Task"><div class="message-header"><span class="role-label">Subagent</span><a href="#msg-2025-12-24T10-05-20-000Z" class="timestamp-link"><time datetime="2025-12-24T10:05:20.000Z" data-timestamp="2025-12-24T10:05:20.000Z">2025-12-24T10:05:20.000Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><div class="subagent-link"><a href="../agent-abc123def/unified.html">View subagent transcript</a></div><pre>All 5 tests passed successfully.
 
 agentId: abc123def</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
 <div class="message assistant" id="msg-2025-12-24T10-05-25-000Z"><div class="message-header"><span class="role-label">Assistant</span><span class="token-info">in: 620 · out: 25</span><a href="#msg-2025-12-24T10-05-25-000Z" class="timestamp-link"><time datetime="2025-12-24T10:05:25.000Z" data-timestamp="2025-12-24T10:05:25.000Z">2025-12-24T10:05:25.000Z</time></a></div><div class="message-content">
