@@ -13,6 +13,7 @@ from claude_code_transcripts import (
     generate_html,
     generate_unified_html,
     extract_subagent_ids,
+    unescape_json_string,
 )
 
 
@@ -1482,6 +1483,106 @@ class TestSubagentLinking:
         assert "Run test suite" in html
         assert 'data-filter="Task"' in html
         assert "../agent-abc123def/unified.html" in html
+
+    def test_task_result_unescapes_json_strings(self, output_dir):
+        """Test that Task tool results unescape JSON-like escaped strings for readability."""
+        # Use raw string to get literal backslash-n sequences (as they appear in real JSONL)
+        escaped_content = r"Found results: {\"name\": \"test value\", \"count\": 42}\n\nDetails:\n- Item one\n- Item two\n\nagentId: xyz789"
+
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Run a task", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_task_escaped",
+                                "name": "Task",
+                                "input": {
+                                    "description": "Test task",
+                                    "prompt": "Do something",
+                                    "subagent_type": "Bash",
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_task_escaped",
+                                "content": escaped_content,
+                            }
+                        ],
+                    },
+                },
+            ]
+        }
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # The literal \n sequences should NOT appear in the output
+        assert r"\n" not in html.split("subagent-result")[1].split("</article>")[0]
+        # The escaped quotes should be unescaped - actual quotes or HTML entities
+        assert "&quot;name&quot;" in html or '"name"' in html
+        assert "&quot;test value&quot;" in html or '"test value"' in html
+
+
+class TestUnescapeJsonString:
+    """Unit tests for the unescape_json_string function."""
+
+    def test_unescapes_newlines(self):
+        """Test that literal \\n sequences are converted to newlines."""
+        assert unescape_json_string(r"line1\nline2") == "line1\nline2"
+
+    def test_unescapes_tabs(self):
+        """Test that literal \\t sequences are converted to tabs."""
+        assert unescape_json_string(r"col1\tcol2") == "col1\tcol2"
+
+    def test_unescapes_carriage_returns(self):
+        """Test that literal \\r sequences are converted to carriage returns."""
+        assert unescape_json_string(r"text\rmore") == "text\rmore"
+
+    def test_unescapes_quotes(self):
+        """Test that literal \\" sequences are converted to quotes."""
+        assert unescape_json_string(r'{"key": \"value\"}') == '{"key": "value"}'
+
+    def test_unescapes_backslashes(self):
+        """Test that literal \\\\ sequences are converted to single backslashes."""
+        assert unescape_json_string(r"path\\to\\file") == "path\\to\\file"
+
+    def test_complex_json_content(self):
+        """Test unescaping a complex JSON-like string."""
+        input_str = r"Result: {\"name\": \"test\", \"items\": [\"a\", \"b\"]}\n\nDetails:\n- First\n- Second"
+        expected = 'Result: {"name": "test", "items": ["a", "b"]}\n\nDetails:\n- First\n- Second'
+        assert unescape_json_string(input_str) == expected
+
+    def test_non_string_returns_unchanged(self):
+        """Test that non-string values are returned unchanged."""
+        assert unescape_json_string(None) is None
+        assert unescape_json_string(123) == 123
+        assert unescape_json_string(["list"]) == ["list"]
+
+    def test_no_escape_sequences_unchanged(self):
+        """Test that strings without escape sequences are unchanged."""
+        plain = "Just plain text with no escapes"
+        assert unescape_json_string(plain) == plain
 
 
 class TestUnifiedHtmlSnapshot:

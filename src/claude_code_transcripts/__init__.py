@@ -103,6 +103,29 @@ def extract_subagent_ids(loglines):
     return agent_map
 
 
+def unescape_json_string(s):
+    """Unescape JSON string escape sequences for readable display.
+
+    Converts literal escape sequences like \\n, \\t, \\" to their actual characters.
+    This makes subagent output more readable when it contains escaped text.
+    """
+    if not isinstance(s, str):
+        return s
+    # Replace common JSON escape sequences
+    # Order matters: replace \\\\ first to avoid double-replacing
+    # Use regular strings: "\\n" matches a literal backslash followed by 'n'
+    result = s
+    result = result.replace(
+        "\\\\", "\x00"
+    )  # Temporarily replace \\\\ to avoid conflicts
+    result = result.replace("\\n", "\n")
+    result = result.replace("\\t", "\t")
+    result = result.replace("\\r", "\r")
+    result = result.replace('\\"', '"')
+    result = result.replace("\x00", "\\")  # Restore single backslashes
+    return result
+
+
 def extract_tool_names_from_message(message_data):
     """Extract tool names used in an assistant message's content blocks.
 
@@ -1303,6 +1326,11 @@ def render_content_block(block):
 
         # Check if this is a Task tool result with a subagent link
         agent_id = _subagent_ids.get(tool_use_id)
+        is_task_result = _tool_id_to_name.get(tool_use_id) == "Task"
+
+        # Unescape JSON strings for Task tool results to make them readable
+        if is_task_result and isinstance(content, str):
+            content = unescape_json_string(content)
 
         # Check for git commits and render with styled cards
         if isinstance(content, str):
@@ -1395,6 +1423,12 @@ def render_user_content_block(block):
         is_error = block.get("is_error", False)
         tool_use_id = block.get("tool_use_id", "")
         agent_id = _subagent_ids.get(tool_use_id)
+        is_task_result = _tool_id_to_name.get(tool_use_id) == "Task"
+
+        # Unescape JSON strings for Task tool results to make them readable
+        if is_task_result and isinstance(content, str):
+            content = unescape_json_string(content)
+
         if isinstance(content, str):
             content_html = f"<pre>{html.escape(content)}</pre>"
         else:
