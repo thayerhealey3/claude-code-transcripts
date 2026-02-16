@@ -717,6 +717,210 @@ class TestTokenUsageCharts:
         assert '<div class="dashboard">' not in html
 
 
+class TestUpdateFlag:
+    """Tests for the --update incremental processing flag."""
+
+    def test_update_skips_already_processed_sessions(
+        self, mock_projects_dir, output_dir
+    ):
+        """Test that --update skips sessions whose output is already up to date."""
+        # First run: process everything
+        stats1 = generate_batch_html(mock_projects_dir, output_dir, new_ui=True)
+        assert stats1["total_sessions"] >= 3
+
+        # Second run with update=True: should skip everything
+        stats2 = generate_batch_html(
+            mock_projects_dir, output_dir, new_ui=True, update=True
+        )
+        assert stats2["skipped_sessions"] == stats1["total_sessions"]
+        assert stats2["total_sessions"] == 0
+
+    def test_update_processes_new_sessions(self, mock_projects_dir, output_dir):
+        """Test that --update processes sessions that haven't been processed yet."""
+        # First run: process everything
+        generate_batch_html(mock_projects_dir, output_dir, new_ui=True)
+
+        # Add a new session
+        project_a = mock_projects_dir / "-home-user-projects-project-a"
+        new_session = project_a / "newsession.jsonl"
+        new_session.write_text(
+            '{"type": "user", "timestamp": "2025-01-10T10:00:00.000Z", "message": {"role": "user", "content": "Brand new session"}}\n'
+            '{"type": "assistant", "timestamp": "2025-01-10T10:00:05.000Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Hello!"}]}}\n'
+        )
+
+        # Second run with update=True: should only process the new session
+        stats2 = generate_batch_html(
+            mock_projects_dir, output_dir, new_ui=True, update=True
+        )
+        assert stats2["total_sessions"] == 1
+        assert stats2["skipped_sessions"] >= 3
+        # The new session should have been generated
+        assert (output_dir / "project-a" / "newsession" / "unified.html").exists()
+
+    def test_update_reprocesses_modified_sessions(self, mock_projects_dir, output_dir):
+        """Test that --update reprocesses sessions whose source file is newer than output."""
+        import time
+
+        # First run: process everything
+        generate_batch_html(mock_projects_dir, output_dir, new_ui=True)
+
+        # Modify an existing session (touch with newer mtime)
+        session_a1 = (
+            mock_projects_dir / "-home-user-projects-project-a" / "abc123.jsonl"
+        )
+        time.sleep(0.05)  # Ensure mtime difference
+        session_a1.write_text(
+            '{"type": "user", "timestamp": "2025-01-01T10:00:00.000Z", "message": {"role": "user", "content": "Hello from project A"}}\n'
+            '{"type": "assistant", "timestamp": "2025-01-01T10:00:05.000Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Updated response!"}]}}\n'
+        )
+
+        # Second run with update=True: should reprocess the modified session
+        stats2 = generate_batch_html(
+            mock_projects_dir, output_dir, new_ui=True, update=True
+        )
+        assert stats2["total_sessions"] == 1  # Only the modified one
+        assert stats2["skipped_sessions"] >= 2  # The rest skipped
+
+    def test_update_without_new_ui(self, mock_projects_dir, output_dir):
+        """Test that --update works with the traditional paginated UI too."""
+        # First run
+        stats1 = generate_batch_html(mock_projects_dir, output_dir)
+        assert stats1["total_sessions"] >= 3
+
+        # Second run with update=True
+        stats2 = generate_batch_html(mock_projects_dir, output_dir, update=True)
+        assert stats2["skipped_sessions"] == stats1["total_sessions"]
+        assert stats2["total_sessions"] == 0
+
+    def test_update_always_regenerates_indexes(self, mock_projects_dir, output_dir):
+        """Test that --update always regenerates project and master indexes."""
+        import time
+
+        # First run
+        generate_batch_html(mock_projects_dir, output_dir, new_ui=True)
+
+        # Record mtime of master index
+        master_index = output_dir / "index.html"
+        original_mtime = master_index.stat().st_mtime
+
+        time.sleep(0.05)
+
+        # Second run with update=True: indexes should be regenerated
+        generate_batch_html(mock_projects_dir, output_dir, new_ui=True, update=True)
+        new_mtime = master_index.stat().st_mtime
+        assert new_mtime > original_mtime
+
+    def test_update_stats_include_skipped_count(self, mock_projects_dir, output_dir):
+        """Test that stats dict includes skipped_sessions count."""
+        # Run without update: should have skipped_sessions = 0
+        stats1 = generate_batch_html(mock_projects_dir, output_dir, new_ui=True)
+        assert "skipped_sessions" in stats1
+        assert stats1["skipped_sessions"] == 0
+
+    def test_update_flag_on_cli(self, mock_projects_dir, output_dir):
+        """Test that --update flag works on the all CLI command."""
+        runner = CliRunner()
+
+        # First run
+        result1 = runner.invoke(
+            cli,
+            [
+                "all",
+                "--source",
+                str(mock_projects_dir),
+                "--output",
+                str(output_dir),
+                "--new-ui",
+            ],
+        )
+        assert result1.exit_code == 0
+
+        # Second run with --update
+        result2 = runner.invoke(
+            cli,
+            [
+                "all",
+                "--source",
+                str(mock_projects_dir),
+                "--output",
+                str(output_dir),
+                "--new-ui",
+                "--update",
+            ],
+        )
+        assert result2.exit_code == 0
+        assert "skipped" in result2.output.lower()
+
+    def test_update_flag_exists_in_help(self):
+        """Test that --update flag is shown in help."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["all", "--help"])
+        assert result.exit_code == 0
+        assert "--update" in result.output
+
+    def test_update_with_include_agents(self, mock_projects_dir, output_dir):
+        """Test that --update works correctly with --include-agents."""
+        # First run with agents
+        stats1 = generate_batch_html(
+            mock_projects_dir, output_dir, include_agents=True, new_ui=True
+        )
+        total_with_agents = stats1["total_sessions"]
+
+        # Second run with update and agents
+        stats2 = generate_batch_html(
+            mock_projects_dir, output_dir, include_agents=True, new_ui=True, update=True
+        )
+        assert stats2["skipped_sessions"] == total_with_agents
+        assert stats2["total_sessions"] == 0
+
+    def test_update_dry_run_shows_what_would_be_updated(
+        self, mock_projects_dir, output_dir
+    ):
+        """Test that --update with --dry-run shows which sessions need updating."""
+        # First run
+        runner = CliRunner()
+        runner.invoke(
+            cli,
+            [
+                "all",
+                "--source",
+                str(mock_projects_dir),
+                "--output",
+                str(output_dir),
+                "--new-ui",
+            ],
+        )
+
+        # Add a new session
+        project_a = mock_projects_dir / "-home-user-projects-project-a"
+        new_session = project_a / "dryrunsession.jsonl"
+        new_session.write_text(
+            '{"type": "user", "timestamp": "2025-01-10T10:00:00.000Z", "message": {"role": "user", "content": "Dry run test session"}}\n'
+            '{"type": "assistant", "timestamp": "2025-01-10T10:00:05.000Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Hi!"}]}}\n'
+        )
+
+        # Dry run with update
+        result = runner.invoke(
+            cli,
+            [
+                "all",
+                "--source",
+                str(mock_projects_dir),
+                "--output",
+                str(output_dir),
+                "--new-ui",
+                "--update",
+                "--dry-run",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "dryrunsession" in result.output
+        # Should not create the new session output
+        assert not (
+            output_dir / "project-a" / "dryrunsession" / "unified.html"
+        ).exists()
+
+
 class TestJsonCommandWithUrl:
     """Tests for the json command with URL support."""
 
