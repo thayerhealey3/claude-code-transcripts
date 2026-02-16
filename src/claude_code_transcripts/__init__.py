@@ -679,12 +679,25 @@ def find_all_sessions(folder, include_agents=False):
     return result
 
 
+def _session_needs_update(session_path, session_dir, new_ui):
+    """Check whether a session needs to be (re)processed.
+
+    Returns True if the output does not exist or the source file is newer
+    than the output HTML file.
+    """
+    output_file = session_dir / ("unified.html" if new_ui else "index.html")
+    if not output_file.exists():
+        return True
+    return session_path.stat().st_mtime > output_file.stat().st_mtime
+
+
 def generate_batch_html(
     source_folder,
     output_dir,
     include_agents=False,
     progress_callback=None,
     new_ui=False,
+    update=False,
 ):
     """Generate HTML archive for all sessions in a Claude projects folder.
 
@@ -700,8 +713,11 @@ def generate_batch_html(
         progress_callback: Optional callback(project_name, session_name, current, total)
             called after each session is processed
         new_ui: Whether to generate unified single-page UI for each session
+        update: When True, only process sessions that are new or modified since
+            last run. Compares source file mtime against output HTML mtime.
 
-    Returns statistics dict with total_projects, total_sessions, failed_sessions, output_dir.
+    Returns statistics dict with total_projects, total_sessions, failed_sessions,
+    skipped_sessions, output_dir.
     """
     source_folder = Path(source_folder)
     output_dir = Path(output_dir)
@@ -714,6 +730,7 @@ def generate_batch_html(
     total_session_count = sum(len(p["sessions"]) for p in projects)
     processed_count = 0
     successful_sessions = 0
+    skipped_sessions = 0
     failed_sessions = []
 
     # Process each project
@@ -725,6 +742,21 @@ def generate_batch_html(
         for session in project["sessions"]:
             session_name = session["path"].stem
             session_dir = project_dir / session_name
+
+            # In update mode, skip sessions that are already up to date
+            if update and not _session_needs_update(
+                session["path"], session_dir, new_ui
+            ):
+                skipped_sessions += 1
+                processed_count += 1
+                if progress_callback:
+                    progress_callback(
+                        project["name"],
+                        session_name,
+                        processed_count,
+                        total_session_count,
+                    )
+                continue
 
             # Generate transcript HTML with error handling
             try:
@@ -758,15 +790,16 @@ def generate_batch_html(
                     project["name"], session_name, processed_count, total_session_count
                 )
 
-        # Generate project index
+        # Always regenerate project index (reflects all sessions including new ones)
         _generate_project_index(project, project_dir, new_ui=new_ui)
 
-    # Generate master index
+    # Always regenerate master index
     _generate_master_index(projects, output_dir, new_ui=new_ui)
 
     return {
         "total_projects": len(projects),
         "total_sessions": successful_sessions,
+        "skipped_sessions": skipped_sessions,
         "failed_sessions": failed_sessions,
         "output_dir": output_dir,
     }
@@ -4706,7 +4739,14 @@ def web_cmd(
     is_flag=True,
     help="Generate a modern unified single-page UI with sidebar navigation and search for each session.",
 )
-def all_cmd(source, output, include_agents, dry_run, open_browser, quiet, new_ui):
+@click.option(
+    "--update",
+    is_flag=True,
+    help="Only process new or modified sessions. Skips sessions whose output is already up to date.",
+)
+def all_cmd(
+    source, output, include_agents, dry_run, open_browser, quiet, new_ui, update
+):
     """Convert all local Claude Code sessions to a browsable HTML archive.
 
     Creates a directory structure with:
@@ -4744,18 +4784,43 @@ def all_cmd(source, output, include_agents, dry_run, open_browser, quiet, new_ui
     if dry_run:
         # Dry-run always outputs (it's the point of dry-run), but respects --quiet
         if not quiet:
-            click.echo("\nDry run - would convert:")
-            for project in projects:
-                click.echo(
-                    f"\n  {project['name']} ({len(project['sessions'])} sessions)"
-                )
-                for session in project["sessions"][:3]:  # Show first 3
-                    mod_time = datetime.fromtimestamp(session["mtime"])
+            if update:
+                click.echo("\nDry run (update mode) - would process:")
+                needs_update = 0
+                up_to_date = 0
+                for project in projects:
+                    project_dir = output / project["name"]
+                    pending = []
+                    for session in project["sessions"]:
+                        session_dir = project_dir / session["path"].stem
+                        if _session_needs_update(session["path"], session_dir, new_ui):
+                            pending.append(session)
+                            needs_update += 1
+                        else:
+                            up_to_date += 1
+                    if pending:
+                        click.echo(f"\n  {project['name']} ({len(pending)} to update)")
+                        for session in pending[:3]:
+                            mod_time = datetime.fromtimestamp(session["mtime"])
+                            click.echo(
+                                f"    - {session['path'].stem} ({mod_time.strftime('%Y-%m-%d')})"
+                            )
+                        if len(pending) > 3:
+                            click.echo(f"    ... and {len(pending) - 3} more")
+                click.echo(f"\n  {needs_update} to process, {up_to_date} up to date")
+            else:
+                click.echo("\nDry run - would convert:")
+                for project in projects:
                     click.echo(
-                        f"    - {session['path'].stem} ({mod_time.strftime('%Y-%m-%d')})"
+                        f"\n  {project['name']} ({len(project['sessions'])} sessions)"
                     )
-                if len(project["sessions"]) > 3:
-                    click.echo(f"    ... and {len(project['sessions']) - 3} more")
+                    for session in project["sessions"][:3]:  # Show first 3
+                        mod_time = datetime.fromtimestamp(session["mtime"])
+                        click.echo(
+                            f"    - {session['path'].stem} ({mod_time.strftime('%Y-%m-%d')})"
+                        )
+                    if len(project["sessions"]) > 3:
+                        click.echo(f"    ... and {len(project['sessions']) - 3} more")
         return
 
     if not quiet:
@@ -4773,6 +4838,7 @@ def all_cmd(source, output, include_agents, dry_run, open_browser, quiet, new_ui
         include_agents=include_agents,
         progress_callback=on_progress,
         new_ui=new_ui,
+        update=update,
     )
 
     # Report any failures
@@ -4784,10 +4850,13 @@ def all_cmd(source, output, include_agents, dry_run, open_browser, quiet, new_ui
             )
 
     if not quiet:
-        click.echo(
+        summary = (
             f"\nGenerated archive with {stats['total_projects']} projects, "
             f"{stats['total_sessions']} sessions"
         )
+        if stats.get("skipped_sessions"):
+            summary += f" ({stats['skipped_sessions']} skipped, already up to date)"
+        click.echo(summary)
         click.echo(f"Output: {output.resolve()}")
 
     if open_browser:
