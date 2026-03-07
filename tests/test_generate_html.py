@@ -386,6 +386,14 @@ class TestFormatToolStats:
         """Test empty tool counts."""
         assert format_tool_stats({}) == ""
 
+    def test_formats_new_tool_abbreviations(self):
+        """Test that Agent, AskUserQuestion, and Skill tools have abbreviations."""
+        counts = {"Agent": 3, "AskUserQuestion": 2, "Skill": 1}
+        result = format_tool_stats(counts)
+        assert "3 agent" in result
+        assert "2 ask" in result
+        assert "1 skill" in result
+
 
 class TestIsToolResultMessage:
     """Tests for tool result message detection."""

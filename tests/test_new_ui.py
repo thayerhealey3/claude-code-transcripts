@@ -748,6 +748,87 @@ class TestMessageTypeFilters:
         # JS should reference data-tools for filtering
         assert "data-tools" in html
 
+    def test_filter_indicator_colors_for_all_tools(self, output_dir):
+        """Test that CSS filter indicator colors exist for all known tool types."""
+        fixture_path = Path(__file__).parent / "sample_session.json"
+
+        generate_unified_html(fixture_path, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        # All known tools should have CSS color definitions
+        expected_tools = [
+            "Bash",
+            "Read",
+            "Write",
+            "Edit",
+            "Glob",
+            "Grep",
+            "Task",
+            "TodoWrite",
+            "WebFetch",
+            "WebSearch",
+            "NotebookEdit",
+            "Agent",
+            "AskUserQuestion",
+            "Skill",
+        ]
+        for tool in expected_tools:
+            assert (
+                f'data-filter="{tool}"] .filter-indicator' in html
+            ), f"Missing CSS filter indicator color for {tool}"
+
+    def test_agent_tool_filter_appears_when_used(self, output_dir):
+        """Test that Agent filter toggle appears when Agent tool is used."""
+        session_data = {
+            "loglines": [
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:00.000Z",
+                    "message": {"content": "Hello", "role": "user"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:00:05.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_agent_001",
+                                "name": "Agent",
+                                "input": {
+                                    "description": "Research task",
+                                    "prompt": "Find info",
+                                    "subagent_type": "general-purpose",
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:00:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_agent_001",
+                                "content": "Research complete\n\nagentId: abc123",
+                            }
+                        ],
+                    },
+                },
+            ]
+        }
+        session_file = output_dir / "test_session.json"
+        session_file.write_text(json.dumps(session_data), encoding="utf-8")
+
+        generate_unified_html(session_file, output_dir)
+
+        html = (output_dir / "unified.html").read_text(encoding="utf-8")
+        assert 'data-filter="Agent"' in html
+
 
 class TestSearchClearButton:
     """Tests for search clear button functionality."""
@@ -2238,10 +2319,131 @@ class TestComprehensiveNewUi:
                         ],
                     },
                 },
-                # 17. Final assistant response
+                # 17. Assistant with Agent tool (new subagent tool)
                 {
                     "type": "assistant",
                     "timestamp": "2025-01-01T10:02:35.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_agent_001",
+                                "name": "Agent",
+                                "input": {
+                                    "description": "Research deployment options",
+                                    "prompt": "Find the best deployment strategy",
+                                    "subagent_type": "general-purpose",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 500, "output_tokens": 60},
+                },
+                # 18. Agent result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:02:50.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_agent_001",
+                                "content": "Deployment research complete\n\nagentId: agent123abc",
+                            }
+                        ],
+                    },
+                },
+                # 19. Assistant with AskUserQuestion tool
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:03:00.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_ask_001",
+                                "name": "AskUserQuestion",
+                                "input": {
+                                    "questions": [
+                                        {
+                                            "question": "Which deployment target?",
+                                            "header": "Deploy",
+                                            "options": [
+                                                {
+                                                    "label": "AWS",
+                                                    "description": "Deploy to AWS",
+                                                },
+                                                {
+                                                    "label": "GCP",
+                                                    "description": "Deploy to GCP",
+                                                },
+                                            ],
+                                            "multiSelect": False,
+                                        }
+                                    ]
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 600, "output_tokens": 70},
+                },
+                # 20. AskUserQuestion result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:03:10.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_ask_001",
+                                "content": "AWS",
+                            }
+                        ],
+                    },
+                },
+                # 21. Assistant with Skill tool
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:03:15.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_skill_001",
+                                "name": "Skill",
+                                "input": {
+                                    "skill": "commit",
+                                    "args": "-m 'Deploy to AWS'",
+                                },
+                            },
+                        ],
+                    },
+                    "usage": {"input_tokens": 400, "output_tokens": 40},
+                },
+                # 22. Skill result
+                {
+                    "type": "user",
+                    "timestamp": "2025-01-01T10:03:20.000Z",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_skill_001",
+                                "content": "Commit created successfully",
+                            }
+                        ],
+                    },
+                },
+                # 23. Final assistant response
+                {
+                    "type": "assistant",
+                    "timestamp": "2025-01-01T10:03:25.000Z",
                     "message": {
                         "role": "assistant",
                         "content": [
@@ -2441,6 +2643,9 @@ class TestComprehensiveNewUi:
         assert 'data-filter="Grep"' in html
         assert 'data-filter="TodoWrite"' in html
         assert 'data-filter="Task"' in html
+        assert 'data-filter="Agent"' in html
+        assert 'data-filter="AskUserQuestion"' in html
+        assert 'data-filter="Skill"' in html
 
     def test_data_tools_attributes_on_messages(
         self, output_dir, comprehensive_session_data

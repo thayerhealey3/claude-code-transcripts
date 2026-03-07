@@ -940,6 +940,9 @@
   .filter-toggle[data-filter="WebFetch"] .filter-indicator { background: #14b8a6; }
   .filter-toggle[data-filter="WebSearch"] .filter-indicator { background: #6366f1; }
   .filter-toggle[data-filter="NotebookEdit"] .filter-indicator { background: #d946ef; }
+  .filter-toggle[data-filter="Agent"] .filter-indicator { background: #0ea5e9; }
+  .filter-toggle[data-filter="AskUserQuestion"] .filter-indicator { background: #f43f5e; }
+  .filter-toggle[data-filter="Skill"] .filter-indicator { background: #84cc16; }
   
   /* Search input with clear button */
   .search-container {
