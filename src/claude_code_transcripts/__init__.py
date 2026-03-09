@@ -65,11 +65,11 @@ def reset_tool_id_tracking():
 
 
 def extract_subagent_ids(loglines):
-    """Pre-scan loglines to extract agentId from Task tool results.
+    """Pre-scan loglines to extract agentId from Task/Agent tool results.
 
     Returns dict mapping tool_use_id to agent_session_id.
     """
-    # First, find all Task tool_use_ids
+    # First, find all Task/Agent tool_use_ids
     task_tool_ids = set()
     for entry in loglines:
         message_data = entry.get("message", {})
@@ -79,7 +79,7 @@ def extract_subagent_ids(loglines):
                 if (
                     isinstance(block, dict)
                     and block.get("type") == "tool_use"
-                    and block.get("name") == "Task"
+                    and block.get("name") in ("Task", "Agent")
                 ):
                     tool_id = block.get("id", "")
                     if tool_id:
@@ -1348,6 +1348,8 @@ def render_content_block(block):
             return render_bash_tool(tool_input, tool_id)
         if tool_name == "Task":
             return render_task_tool(tool_input, tool_id)
+        if tool_name == "Agent":
+            return render_task_tool(tool_input, tool_id)
         description = tool_input.get("description", "")
         display_input = {k: v for k, v in tool_input.items() if k != "description"}
         input_json = json.dumps(display_input, indent=2, ensure_ascii=False)
@@ -1357,11 +1359,11 @@ def render_content_block(block):
         is_error = block.get("is_error", False)
         tool_use_id = block.get("tool_use_id", "")
 
-        # Check if this is a Task tool result with a subagent link
+        # Check if this is a Task/Agent tool result with a subagent link
         agent_id = _subagent_ids.get(tool_use_id)
-        is_task_result = _tool_id_to_name.get(tool_use_id) == "Task"
+        is_task_result = _tool_id_to_name.get(tool_use_id) in ("Task", "Agent")
 
-        # Unescape JSON strings for Task tool results to make them readable
+        # Unescape JSON strings for Task/Agent tool results to make them readable
         if is_task_result and isinstance(content, str):
             content = unescape_json_string(content)
 
@@ -1456,9 +1458,9 @@ def render_user_content_block(block):
         is_error = block.get("is_error", False)
         tool_use_id = block.get("tool_use_id", "")
         agent_id = _subagent_ids.get(tool_use_id)
-        is_task_result = _tool_id_to_name.get(tool_use_id) == "Task"
+        is_task_result = _tool_id_to_name.get(tool_use_id) in ("Task", "Agent")
 
-        # Unescape JSON strings for Task tool results to make them readable
+        # Unescape JSON strings for Task/Agent tool results to make them readable
         if is_task_result and isinstance(content, str):
             content = unescape_json_string(content)
 
@@ -1570,6 +1572,10 @@ def format_tool_stats(tool_counts):
         "TodoWrite": "todo",
         "WebFetch": "fetch",
         "WebSearch": "search",
+        "NotebookEdit": "notebook",
+        "Agent": "agent",
+        "AskUserQuestion": "ask",
+        "Skill": "skill",
     }
 
     parts = []
@@ -1610,8 +1616,8 @@ def render_message(log_type, message_json, timestamp, usage=None):
             tool_names = resolve_tool_names_for_result(message_data)
             if tool_names:
                 data_tools = ",".join(tool_names)
-            # Use distinct label/class for subagent (Task) results
-            if "Task" in tool_names:
+            # Use distinct label/class for subagent (Task/Agent) results
+            if "Task" in tool_names or "Agent" in tool_names:
                 role_class, role_label = "subagent-result", "Subagent"
             else:
                 role_class, role_label = "tool-reply", "Tool reply"
@@ -2850,6 +2856,9 @@ pre code { background: none; padding: 0; }
 .filter-toggle[data-filter="WebFetch"] .filter-indicator { background: #14b8a6; }
 .filter-toggle[data-filter="WebSearch"] .filter-indicator { background: #6366f1; }
 .filter-toggle[data-filter="NotebookEdit"] .filter-indicator { background: #d946ef; }
+.filter-toggle[data-filter="Agent"] .filter-indicator { background: #0ea5e9; }
+.filter-toggle[data-filter="AskUserQuestion"] .filter-indicator { background: #f43f5e; }
+.filter-toggle[data-filter="Skill"] .filter-indicator { background: #84cc16; }
 
 /* Search input with clear button */
 .search-container {
@@ -3810,8 +3819,8 @@ def render_message_unified(log_type, message_json, timestamp, usage=None):
             tool_names = resolve_tool_names_for_result(message_data)
             if tool_names:
                 data_tools = ",".join(tool_names)
-            # Use distinct label/class for subagent (Task) results
-            if "Task" in tool_names:
+            # Use distinct label/class for subagent (Task/Agent) results
+            if "Task" in tool_names or "Agent" in tool_names:
                 role_class, role_label = "subagent-result", "Subagent"
             else:
                 role_class, role_label = "tool-reply", "Tool reply"
